@@ -1,0 +1,65 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return request.auth != null && 
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Course materials (videos, PDFs) - Admin upload only, subscribers can view
+    match /courses/{courseId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    // Assignment uploads - Students can upload, only they and admin can read
+    match /assignments/{userId}/{assignmentId}/{fileName} {
+      allow read: if isSignedIn() && 
+                     (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Assignment solutions - Admin uploads, student reads their own
+    match /solutions/{userId}/{assignmentId}/{fileName} {
+      allow read: if isSignedIn() && 
+                     (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+    
+    // CV uploads - Students can upload their CVs
+    match /cvs/{userId}/original/{fileName} {
+      allow read: if isSignedIn() && 
+                     (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Job posting images - Students can upload
+    match /cvs/{userId}/job-postings/{fileName} {
+      allow read: if isSignedIn() && 
+                     (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Tailored CVs - Admin uploads, student reads
+    match /cvs/{userId}/tailored/{fileName} {
+      allow read: if isSignedIn() && 
+                     (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+    
+    // Profile pictures - Users can upload their own
+    match /profiles/{userId}/{fileName} {
+      allow read: if true; // Public
+      allow write: if isSignedIn() && 
+                      request.auth.uid == userId &&
+                      request.resource.size < 5 * 1024 * 1024 && // 5MB limit
+                      request.resource.contentType.matches('image/.*');
+    }
+  }
+}
