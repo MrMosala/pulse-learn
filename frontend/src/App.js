@@ -43,15 +43,6 @@ function AdminRoute({ children }) {
   
   return children;
 }
-
-// Subscription Required Route
-function SubscriptionRoute({ children }) {
-  const { userProfile } = useAuth();
-  return userProfile?.subscriptionStatus === 'active' 
-    ? children 
-    : <Navigate to="/subscribe" />;
-}
-
 function AppContent() {
   return (
     <Router>
