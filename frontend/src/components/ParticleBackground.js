@@ -1,113 +1,67 @@
 // frontend/src/components/ParticleBackground.js
 import React, { useEffect, useRef } from 'react';
 
-function ParticleBackground() {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const particles = [];
-    const particleCount = 80;
-    const colors = ['#8B5CF6', '#3B82F6', '#06B6D4', '#10B981'];
-
-    class Particle {
-      constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.size = Math.random() * 3 + 1;
-        this.speedX = Math.random() * 1 - 0.5;
-        this.speedY = Math.random() * 1 - 0.5;
-        this.color = colors[Math.floor(Math.random() * colors.length)];
-      }
-
-      update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-
-        if (this.x > canvas.width || this.x < 0) this.speedX *= -1;
-        if (this.y > canvas.height || this.y < 0) this.speedY *= -1;
-      }
-
-      draw() {
-        ctx.fillStyle = this.color;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function init() {
-      for (let i = 0; i < particleCount; i++) {
-        particles.push(new Particle());
-      }
-    }
-
-    function animate() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      particles.forEach((particle, i) => {
-        particle.update();
-        particle.draw();
-
-        // Draw connections
-        particles.slice(i + 1).forEach(otherParticle => {
-          const dx = particle.x - otherParticle.x;
-          const dy = particle.y - otherParticle.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-
-          if (distance < 150) {
-            ctx.strokeStyle = particle.color;
-            ctx.globalAlpha = 1 - distance / 150;
-            ctx.lineWidth = 0.5;
-            ctx.beginPath();
-            ctx.moveTo(particle.x, particle.y);
-            ctx.lineTo(otherParticle.x, otherParticle.y);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-          }
-        });
-      });
-
-      requestAnimationFrame(animate);
-    }
-
-    function handleResize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-
-    window.addEventListener('resize', handleResize);
-    init();
-    animate();
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
+const ParticleBackground = () => {
+  const mountRef = useRef(null);
+  
+  // Simple CSS-only background - no Three.js
   return (
-    <canvas
-      ref={canvasRef}
+    <div 
+      ref={mountRef}
+      className="particle-background"
       style={{
         position: 'fixed',
         top: 0,
         left: 0,
         width: '100%',
         height: '100%',
-        zIndex: 0,
-        opacity: 0.6,
-        pointerEvents: 'none'
+        zIndex: -1,
+        pointerEvents: 'none',
+        overflow: 'hidden'
       }}
-    />
+    >
+      {/* Simple gradient background */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+        filter: 'blur(40px)'
+      }} />
+      
+      {/* Simple particles using CSS */}
+      {[...Array(20)].map((_, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+            width: `${Math.random() * 3 + 1}px`,
+            height: `${Math.random() * 3 + 1}px`,
+            background: `rgba(139, 92, 246, ${Math.random() * 0.3 + 0.1})`,
+            borderRadius: '50%',
+            animation: `float ${Math.random() * 20 + 10}s infinite ease-in-out`,
+            animationDelay: `${Math.random() * 5}s`
+          }}
+        />
+      ))}
+    </div>
   );
-}
+};
+
+// Add CSS animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(10px, -10px) scale(1.1); }
+    50% { transform: translate(-5px, 5px) scale(0.9); }
+    75% { transform: translate(-10px, -5px) scale(1.05); }
+  }
+`;
+document.head.appendChild(style);
 
 export default ParticleBackground;

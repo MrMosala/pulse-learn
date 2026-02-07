@@ -1,91 +1,128 @@
 // frontend/src/pages/Dashboard.js
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import '../styles/dashboard.css';
+import DashboardLayout from '../components/DashboardLayout';
+import '../App.css';
 
 function Dashboard() {
   const { userProfile } = useAuth();
 
-  if (!userProfile) return <div>Loading...</div>;
-
   return (
-    <div className="page dashboard-page">
-      <div className="welcome-banner">
-        <h2>WELCOME BACK, {userProfile.displayName?.toUpperCase()}! ⚡</h2>
-        <div className="user-info">
-          <div className="info-item">
-            <span className="info-label">Student Number</span>
-            <span className="info-value">{userProfile.studentNumber}</span>
+    <DashboardLayout>
+      {/* Welcome Banner */}
+      <div className="welcome-card">
+        <h1 className="welcome-title">
+          WELCOME BACK, <span className="highlight-name">{userProfile?.displayName?.toUpperCase() || "MOSALA SERAI"}</span>! 🎉
+        </h1>
+        
+        <div className="student-info-cards">
+          <div className="info-card">
+            <div className="info-label">STUDENT NUMBER</div>
+            <div className="info-value">{userProfile?.studentNumber || "202012345"}</div>
           </div>
-          <div className="info-item">
-            <span className="info-label">University</span>
-            <span className="info-value">{userProfile.university}</span>
+          <div className="info-card">
+            <div className="info-label">UNIVERSITY</div>
+            <div className="info-value">{userProfile?.university || "Nelson Mandela University"}</div>
           </div>
-          <div className="info-item">
-            <span className="info-label">Program</span>
-            <span className="info-value">{userProfile.course}</span>
+          <div className="info-card">
+            <div className="info-label">PROGRAM</div>
+            <div className="info-value">{userProfile?.course || "BSc Applied Mathematics"}</div>
           </div>
-          <div className="info-item">
-            <span className="info-label">Level</span>
-            <span className="info-value" style={{color: '#FFD700'}}>
-              {userProfile.level || 1} ⭐
-            </span>
+          <div className="info-card">
+            <div className="info-label">LEVEL</div>
+            <div className="info-value level-display">
+              {userProfile?.level || "1"} ★
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="xp-container">
+      {/* Experience Points */}
+      <div className="xp-card">
         <div className="xp-header">
-          <span className="xp-label">EXPERIENCE POINTS</span>
-          <span className="xp-value">{userProfile.xp || 0} / 3,000 XP</span>
+          <div className="xp-title">EXPERIENCE POINTS</div>
+          <div className="xp-count">{userProfile?.xp || 0} / 3,000 XP</div>
         </div>
-        <div className="progress-container">
-          <div className="progress-bar" style={{width: `${((userProfile.xp || 0) / 3000) * 100}%`}}></div>
+        <div className="xp-progress-container">
+          <div 
+            className="xp-progress-bar"
+            style={{ width: `${((userProfile?.xp || 0) / 3000) * 100}%` }}
+          ></div>
         </div>
       </div>
 
+      {/* Quick Actions */}
+      <div className="section-header">
+        <h2>Quick Actions</h2>
+      </div>
+      
+      <div className="quick-actions-grid">
+        <button 
+          className="action-card"
+          onClick={() => window.location.href = '/courses'}
+        >
+          <div className="action-icon">📚</div>
+          <div className="action-content">
+            <h3>Continue Learning</h3>
+            <p>Resume your courses</p>
+          </div>
+        </button>
+        <button 
+          className="action-card"
+          onClick={() => window.location.href = '/cv-builder'}
+        >
+          <div className="action-icon">💼</div>
+          <div className="action-content">
+            <h3>Build CV</h3>
+            <p>Create tailored CVs</p>
+          </div>
+        </button>
+        <button 
+          className="action-card"
+          onClick={() => window.location.href = '/finance'}
+        >
+          <div className="action-icon">💰</div>
+          <div className="action-content">
+            <h3>Check Budget</h3>
+            <p>View financial health</p>
+          </div>
+        </button>
+        <button 
+          className="action-card"
+          onClick={() => window.location.href = '/assignments'}
+        >
+          <div className="action-icon">📄</div>
+          <div className="action-content">
+            <h3>Upload Assignment</h3>
+            <p>Get help with work</p>
+          </div>
+        </button>
+      </div>
+
+      {/* Stats Grid (Desktop only) */}
+      <div className="section-header">
+        <h2>Your Progress</h2>
+      </div>
+      
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon">📚</div>
-          <div className="stat-value">12</div>
+        <div className="stat-item">
+          <div className="stat-number">12</div>
           <div className="stat-label">Active Courses</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon">💼</div>
-          <div className="stat-value">3</div>
+        <div className="stat-item">
+          <div className="stat-number">3</div>
           <div className="stat-label">CVs Created</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon">💰</div>
-          <div className="stat-value">78%</div>
+        <div className="stat-item">
+          <div className="stat-number">78%</div>
           <div className="stat-label">Budget Health</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon">🎯</div>
-          <div className="stat-value">85%</div>
+        <div className="stat-item">
+          <div className="stat-number">85%</div>
           <div className="stat-label">Overall Progress</div>
         </div>
       </div>
-
-      <h2 className="section-title">Quick Actions</h2>
-      <div className="quick-actions">
-        <a href="/courses" className="action-card glass-card">
-          <div className="action-icon">📚</div>
-          <h3>Continue Learning</h3>
-          <p>Resume your courses</p>
-        </a>
-        <a href="/cv-builder" className="action-card glass-card">
-          <div className="action-icon">💼</div>
-          <h3>Build CV</h3>
-          <p>Create tailored CVs</p>
-        </a>
-        <a href="/finance" className="action-card glass-card">
-          <div className="action-icon">💰</div>
-          <h3>Check Budget</h3>
-          <p>View financial health</p>
-        </a>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }
 
