@@ -1,5 +1,5 @@
 // frontend/src/components/ParticleBackground.js
-import React from 'react';
+import React, { useRef } from 'react';
 
 const ParticleBackground = () => {
   const mountRef = useRef(null);
