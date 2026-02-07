@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import '../App.css';
 
 function DashboardLayout({ children }) {
-  const { userProfile, logout } = useAuth();
+  const { userProfile, logout, isAdmin } = useAuth(); // ADD isAdmin from AuthContext
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
   const navigate = useNavigate();
@@ -104,12 +104,17 @@ function DashboardLayout({ children }) {
               >
                 <span className="nav-icon">💰</span> Finance
               </button>
-              <button 
-                className={`mobile-nav-item ${isActive('/admin') ? 'active' : ''}`}
-                onClick={() => handleNavigation('/admin')}
-              >
-                <span className="nav-icon">⚙️</span> Admin
-              </button>
+              
+              {/* ADMIN LINK - Only show if user is admin */}
+              {isAdmin && (
+                <button 
+                  className={`mobile-nav-item ${isActive('/admin') ? 'active' : ''}`}
+                  onClick={() => handleNavigation('/admin')}
+                >
+                  <span className="nav-icon">⚙️</span> Admin
+                </button>
+              )}
+              
               <button 
                 className={`mobile-nav-item ${isActive('/profile') ? 'active' : ''}`}
                 onClick={() => handleNavigation('/profile')}
@@ -163,13 +168,18 @@ function DashboardLayout({ children }) {
               <span className="sidebar-icon">💰</span>
               <span className="sidebar-text">Finance</span>
             </button>
-            <button 
-              className={`sidebar-item ${isActive('/admin') ? 'active' : ''}`}
-              onClick={() => handleNavigation('/admin')}
-            >
-              <span className="sidebar-icon">⚙️</span>
-              <span className="sidebar-text">Admin</span>
-            </button>
+            
+            {/* ADMIN LINK - Only show if user is admin */}
+            {isAdmin && (
+              <button 
+                className={`sidebar-item ${isActive('/admin') ? 'active' : ''}`}
+                onClick={() => handleNavigation('/admin')}
+              >
+                <span className="sidebar-icon">⚙️</span>
+                <span className="sidebar-text">Admin</span>
+              </button>
+            )}
+            
             <button 
               className={`sidebar-item ${isActive('/profile') ? 'active' : ''}`}
               onClick={() => handleNavigation('/profile')}
