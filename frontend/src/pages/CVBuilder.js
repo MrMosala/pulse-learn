@@ -1,76 +1,91 @@
 // frontend/src/pages/CVBuilder.js
-import React, { useState } from 'react';
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../services/firebase';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
+import { 
+  submitCVRequest, 
+  getAllUserCVRequests,
+  uploadCVFile,
+  logUserActivity,
+  deleteUserCVRequest 
+} from '../services/firebase';
 import '../App.css';
 
 function CVBuilder() {
   const [jobPosting, setJobPosting] = useState(null);
   const [currentCV, setCurrentCV] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [formData, setFormData] = useState({
-    position: '',
-    company: '',
-    applicationType: 'internship',
+    jobTitle: '',
+    industry: '',
+    experienceLevel: 'entry',
+    keySkills: '',
+    achievements: '',
+    targetCompanies: '',
+    deadline: '',
     notes: ''
   });
-  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [applications, setApplications] = useState([]);
   const [loadingApplications, setLoadingApplications] = useState(true);
   const { currentUser, userProfile } = useAuth();
 
-  // Fetch user's previous applications
-// Replace the entire useEffect with:
-React.useEffect(() => {
-  const fetchUserApplications = async () => {
+  // Fetch user's previous CV requests
+  useEffect(() => {
+    const fetchUserApplications = async () => {
+      if (!currentUser) return;
+      
+      try {
+        const userRequests = await getAllUserCVRequests(currentUser.uid);
+        
+        // Sort by most recent
+        const sortedRequests = userRequests.sort((a, b) => {
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+          return dateB - dateA;
+        });
+        
+        setApplications(sortedRequests);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setMessage('❌ Error loading your previous requests');
+      } finally {
+        setLoadingApplications(false);
+      }
+    };
+    
+    fetchUserApplications();
+  }, [currentUser]);
+
+  // Handle delete CV request
+  const handleDeleteCVRequest = async (requestId) => {
     if (!currentUser) return;
     
+    if (!window.confirm('Are you sure you want to delete this CV request?')) {
+      return;
+    }
+    
     try {
-      const q = query(
-        collection(db, 'cvRequests'),
-        where('studentId', '==', currentUser.uid)
-      );
-      const querySnapshot = await getDocs(q);
+      const result = await deleteUserCVRequest(requestId, currentUser.uid);
       
-      const apps = [];
-      querySnapshot.forEach((doc) => {
-        apps.push({ id: doc.id, ...doc.data() });
-      });
-      setApplications(apps);
+      if (result.success) {
+        setMessage('✅ CV request deleted successfully');
+        // Refresh applications list
+        const updatedApplications = applications.filter(app => app.id !== requestId);
+        setApplications(updatedApplications);
+        
+        // Log activity
+        await logUserActivity(currentUser.uid, 'CV_REQUEST_DELETED', {
+          requestId: requestId
+        });
+      } else {
+        setMessage(`❌ Error: ${result.error}`);
+      }
     } catch (error) {
-      console.error('Error fetching applications:', error);
-    } finally {
-      setLoadingApplications(false);
+      setMessage(`❌ Error: ${error.message}`);
     }
   };
-  
-  fetchUserApplications();
-}, [currentUser]); // Now only depends on currentUser
-
-  async function fetchApplications() {
-    if (!currentUser) return;
-    
-    try {
-      const q = query(
-        collection(db, 'cvRequests'),
-        where('studentId', '==', currentUser.uid)
-      );
-      const querySnapshot = await getDocs(q);
-      
-      const apps = [];
-      querySnapshot.forEach((doc) => {
-        apps.push({ id: doc.id, ...doc.data() });
-      });
-      setApplications(apps);
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-    } finally {
-      setLoadingApplications(false);
-    }
-  }
 
   function handleChange(e) {
     setFormData({
@@ -79,88 +94,218 @@ React.useEffect(() => {
     });
   }
 
+  const handleFileUpload = async (file, type) => {
+    if (!currentUser || !file) return null;
+    
+    try {
+      setUploadingFile(true);
+      const result = await uploadCVFile(currentUser.uid, file);
+      
+      if (result.success) {
+        return result.downloadURL;
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error(`Error uploading ${type}:`, error);
+      setMessage(`❌ Error uploading ${type}: ${error.message}`);
+      return null;
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!jobPosting || !currentCV) {
-      setMessage('Please upload both job posting and your CV');
+    if (!currentCV) {
+      setMessage('❌ Please upload your current CV');
+      return;
+    }
+
+    if (!formData.jobTitle.trim()) {
+      setMessage('❌ Please enter the job title');
       return;
     }
 
     try {
-      setUploading(true);
-      setMessage('');
+      setSubmitting(true);
+      setMessage('⏳ Uploading files...');
 
-      // Upload job posting image
-      const jobPostingRef = ref(storage, `cvs/${currentUser.uid}/job-postings/${Date.now()}_${jobPosting.name}`);
-      await uploadBytes(jobPostingRef, jobPosting);
-      const jobPostingURL = await getDownloadURL(jobPostingRef);
+      // 1. Upload CV file
+      const cvFileUrl = await handleFileUpload(currentCV, 'CV');
+      if (!cvFileUrl) {
+        setMessage('❌ Failed to upload CV file');
+        setSubmitting(false);
+        return;
+      }
 
-      // Upload current CV
-      const cvRef = ref(storage, `cvs/${currentUser.uid}/original/${Date.now()}_${currentCV.name}`);
-      await uploadBytes(cvRef, currentCV);
-      const cvURL = await getDownloadURL(cvRef);
+      // 2. Upload job posting if provided
+      let jobPostingUrl = null;
+      if (jobPosting) {
+        setMessage('⏳ Uploading job posting...');
+        jobPostingUrl = await handleFileUpload(jobPosting, 'job posting');
+        // Continue even if job posting upload fails
+      }
 
-      // Create CV request in Firestore
-      await addDoc(collection(db, 'cvRequests'), {
-        studentId: currentUser.uid,
-        studentName: userProfile?.displayName || 'Student',
-        studentNumber: userProfile?.studentNumber || '',
-        university: userProfile?.university || '',
-        course: userProfile?.course || '',
-        jobPostingURL: jobPostingURL,
-        currentCVURL: cvURL,
-        position: formData.position,
-        company: formData.company,
-        applicationType: formData.applicationType,
-        notes: formData.notes,
-        status: 'pending',
-        submittedAt: serverTimestamp(),
-        completedAt: null,
-        tailoredCVURL: null
-      });
+      setMessage('⏳ Submitting request...');
 
-      setMessage('✅ CV request submitted! We\'ll notify you when ready.');
-      setJobPosting(null);
-      setCurrentCV(null);
-      setFormData({
-        position: '',
-        company: '',
-        applicationType: 'internship',
-        notes: ''
-      });
-      
-      // Refresh applications list
-      fetchApplications();
-      
-      // Reset file inputs
-      e.target.reset();
+      // Prepare user data
+      const userData = {
+        firstName: userProfile?.firstName || currentUser.displayName?.split(' ')[0] || 'User',
+        lastName: userProfile?.lastName || currentUser.displayName?.split(' ').slice(1).join(' ') || '',
+        email: userProfile?.email || currentUser.email || '',
+        totalRequests: userProfile?.totalRequests || 0
+      };
+
+      // Prepare CV request data
+      const cvData = {
+        jobTitle: formData.jobTitle.trim(),
+        industry: formData.industry.trim(),
+        experienceLevel: formData.experienceLevel,
+        keySkills: formData.keySkills.split(',').map(skill => skill.trim()).filter(skill => skill),
+        achievements: formData.achievements.trim(),
+        targetCompanies: formData.targetCompanies.trim(),
+        deadline: formData.deadline || null,
+        currentCV: cvFileUrl, // Now a URL, not a file
+        jobPosting: jobPostingUrl, // URL if uploaded
+        notes: formData.notes.trim()
+      };
+
+      // Submit CV request
+      const result = await submitCVRequest(currentUser.uid, userData, cvData);
+
+      if (result.success) {
+        setMessage('✅ CV request submitted successfully! We\'ll notify you when ready.');
+        
+        // Reset form
+        setJobPosting(null);
+        setCurrentCV(null);
+        setFormData({
+          jobTitle: '',
+          industry: '',
+          experienceLevel: 'entry',
+          keySkills: '',
+          achievements: '',
+          targetCompanies: '',
+          deadline: '',
+          notes: ''
+        });
+        
+        // Log activity
+        await logUserActivity(currentUser.uid, 'CV_REQUEST_SUBMITTED', {
+          requestId: result.requestId,
+          jobTitle: cvData.jobTitle
+        });
+        
+        // Refresh applications list
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        throw new Error(result.error || 'Failed to submit CV request');
+      }
     } catch (error) {
       console.error('Error submitting CV request:', error);
-      setMessage('❌ Error submitting request. Please try again.');
+      setMessage(`❌ Error: ${error.message}`);
     } finally {
-      setUploading(false);
+      setSubmitting(false);
     }
   }
 
-  const getStatusBadge = (status) => {
+  const getStatusDisplay = (status) => {
     switch (status) {
-      case 'completed': return { text: 'Completed', className: 'status-completed', icon: '✅' };
-      case 'in_progress': return { text: 'In Progress', className: 'status-progress', icon: '🔄' };
-      case 'reviewing': return { text: 'Under Review', className: 'status-review', icon: '📝' };
-      default: return { text: 'Pending', className: 'status-pending', icon: '⏳' };
+      case 'completed': 
+        return { 
+          text: 'Completed ✅', 
+          color: '#10B981', 
+          icon: '✅', 
+          className: 'status-completed',
+          message: 'Your tailored CV is ready!' 
+        };
+      case 'in-progress': 
+        return { 
+          text: 'In Progress', 
+          color: '#3B82F6', 
+          icon: '🔄', 
+          className: 'status-progress',
+          message: 'Our experts are working on your CV' 
+        };
+      case 'reviewing': 
+        return { 
+          text: 'Reviewing', 
+          color: '#8B5CF6', 
+          icon: '📝', 
+          className: 'status-review',
+          message: 'Your CV is being reviewed' 
+        };
+      default: 
+        return { 
+          text: 'Pending', 
+          color: '#F59E0B', 
+          icon: '⏳', 
+          className: 'status-pending',
+          message: 'Awaiting processing' 
+        };
     }
   };
 
-  const getApplicationTypeIcon = (type) => {
-    switch (type) {
-      case 'internship': return '🎓';
-      case 'graduate': return '🎯';
-      case 'parttime': return '⏱️';
-      case 'bursary': return '💰';
-      case 'learnership': return '📚';
-      default: return '💼';
+  const getExperienceDisplay = (level) => {
+    switch (level) {
+      case 'entry': return { text: 'Entry Level', icon: '🎓' };
+      case 'junior': return { text: 'Junior (1-3 yrs)', icon: '👔' };
+      case 'mid': return { text: 'Mid Level (3-5 yrs)', icon: '💼' };
+      case 'senior': return { text: 'Senior (5+ yrs)', icon: '👨‍💼' };
+      case 'executive': return { text: 'Executive', icon: '🏢' };
+      default: return { text: 'Not specified', icon: '❓' };
     }
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Recently';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-ZA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const handleFileSelect = (e, setFileFunction, fileType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = {
+      cv: ['.pdf', '.doc', '.docx', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      jobPosting: ['.pdf', '.jpg', '.jpeg', '.png', 'image/*', 'application/pdf']
+    };
+    
+    const fileExtension = '.' + file.name.toLowerCase().split('.').pop();
+    
+    if (!validTypes[fileType].includes(fileExtension) && !validTypes[fileType].includes(file.type)) {
+      setMessage(`❌ Invalid file type for ${fileType === 'cv' ? 'CV' : 'job posting'}. Please upload PDF, DOC, or DOCX for CV, or PDF/JPG/PNG for job posting.`);
+      e.target.value = ''; // Clear the input
+      return;
+    }
+    
+    // Validate file size (10MB for CV, 5MB for job posting)
+    const maxSize = fileType === 'cv' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setMessage(`❌ File too large. Maximum size is ${fileType === 'cv' ? '10MB' : '5MB'}`);
+      e.target.value = '';
+      return;
+    }
+    
+    setFileFunction(file);
+    setMessage(`✅ ${fileType === 'cv' ? 'CV' : 'Job posting'} selected: ${file.name}`);
   };
 
   return (
@@ -168,8 +313,8 @@ React.useEffect(() => {
       <div className="cv-builder-page-content">
         {/* Page Header */}
         <div className="page-header">
-          <h1>💼 CV Builder</h1>
-          <p>Upload a job posting and your CV. We'll tailor it perfectly for you!</p>
+          <h1>💼 Professional CV Builder</h1>
+          <p>Get your CV professionally tailored for specific job applications</p>
         </div>
 
         {/* How It Works Card */}
@@ -177,34 +322,28 @@ React.useEffect(() => {
           <div className="info-card-icon">💡</div>
           <div className="info-card-content">
             <h3>How It Works</h3>
-            <p>Upload a job posting image and your current CV. Our experts will analyze the requirements and tailor your CV to match the position perfectly!</p>
-            <div className="info-card-steps">
-              <div className="step">
-                <span className="step-number">1</span>
-                <span className="step-text">Upload job posting & CV</span>
-              </div>
-              <div className="step">
-                <span className="step-number">2</span>
-                <span className="step-text">We analyze & tailor</span>
-              </div>
-              <div className="step">
-                <span className="step-number">3</span>
-                <span className="step-text">Download perfect CV</span>
-              </div>
-            </div>
+            <ol className="how-it-works">
+              <li>📄 Upload your current CV (required)</li>
+              <li>📝 Provide job details and requirements</li>
+              <li>🎯 Our experts tailor your CV to match the job</li>
+              <li>✅ Receive professionally tailored CV with ATS optimization</li>
+              <li>💬 Request revisions if needed</li>
+            </ol>
           </div>
         </div>
 
         {/* Create New CV Form */}
         <div className="cv-form-card">
           <div className="form-header">
-            <h2>Create New Tailored CV</h2>
-            <span className="form-subtitle">Fill in the details below</span>
+            <h2>Request CV Tailoring</h2>
+            <span className="form-subtitle">Fill in the job details below</span>
           </div>
 
           {message && (
-            <div className={`message-alert ${message.includes('✅') ? 'success' : 'error'}`}>
-              <div className="alert-icon">{message.includes('✅') ? '✅' : '❌'}</div>
+            <div className={`message-alert ${message.includes('✅') ? 'success' : message.includes('⏳') ? 'info' : 'error'}`}>
+              <div className="alert-icon">
+                {message.includes('✅') ? '✅' : message.includes('⏳') ? '⏳' : '❌'}
+              </div>
               <div className="alert-message">{message}</div>
             </div>
           )}
@@ -212,48 +351,25 @@ React.useEffect(() => {
           <form onSubmit={handleSubmit}>
             {/* Upload Section */}
             <div className="upload-section">
-              <h3>Upload Documents</h3>
+              <h3>1. Upload Documents</h3>
               <div className="upload-grid">
                 <div 
-                  className={`upload-area ${jobPosting ? 'has-file' : ''}`}
-                  onClick={() => document.getElementById('job-posting-input').click()}
-                >
-                  <input
-                    id="job-posting-input"
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => setJobPosting(e.target.files[0])}
-                    style={{display: 'none'}}
-                    disabled={uploading}
-                  />
-                  <div className="upload-icon">📸</div>
-                  <h4>Job Posting</h4>
-                  <p>Screenshot or photo of the job advertisement</p>
-                  {jobPosting && (
-                    <div className="file-info">
-                      <span className="file-name">{jobPosting.name}</span>
-                      <span className="file-size">
-                        {(jobPosting.size / 1024 / 1024).toFixed(2)} MB
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div 
                   className={`upload-area ${currentCV ? 'has-file' : ''}`}
-                  onClick={() => document.getElementById('cv-input').click()}
+                  onClick={() => !submitting && !uploadingFile && document.getElementById('cv-input').click()}
                 >
                   <input
                     id="cv-input"
                     type="file"
-                    accept=".pdf,.docx,.doc"
-                    onChange={(e) => setCurrentCV(e.target.files[0])}
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => handleFileSelect(e, setCurrentCV, 'cv')}
                     style={{display: 'none'}}
-                    disabled={uploading}
+                    disabled={submitting || uploadingFile}
                   />
-                  <div className="upload-icon">📄</div>
-                  <h4>Your Current CV</h4>
-                  <p>Your existing resume or CV document</p>
+                  <div className="upload-icon">
+                    {uploadingFile ? '⏳' : '📄'}
+                  </div>
+                  <h4>Your Current CV *</h4>
+                  <p>Upload your existing CV (PDF or Word, max 10MB)</p>
                   {currentCV && (
                     <div className="file-info">
                       <span className="file-name">{currentCV.name}</span>
@@ -263,59 +379,138 @@ React.useEffect(() => {
                     </div>
                   )}
                 </div>
+
+                <div 
+                  className={`upload-area ${jobPosting ? 'has-file' : ''}`}
+                  onClick={() => !submitting && !uploadingFile && document.getElementById('job-posting-input').click()}
+                >
+                  <input
+                    id="job-posting-input"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,image/*"
+                    onChange={(e) => handleFileSelect(e, setJobPosting, 'jobPosting')}
+                    style={{display: 'none'}}
+                    disabled={submitting || uploadingFile}
+                  />
+                  <div className="upload-icon">
+                    {uploadingFile ? '⏳' : '📸'}
+                  </div>
+                  <h4>Job Posting (Optional)</h4>
+                  <p>Screenshot or PDF of job advertisement (max 5MB)</p>
+                  {jobPosting && (
+                    <div className="file-info">
+                      <span className="file-name">{jobPosting.name}</span>
+                      <span className="file-size">
+                        {(jobPosting.size / 1024 / 1024).toFixed(2)} MB
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Form Details */}
             <div className="form-details-section">
-              <h3>Application Details</h3>
+              <h3>2. Job Details</h3>
               
-              <div className="form-group">
-                <label>Position You're Applying For *</label>
-                <input
-                  type="text"
-                  name="position"
-                  value={formData.position}
-                  onChange={handleChange}
-                  placeholder="e.g., Data Science Intern, Junior Developer"
-                  required
-                  disabled={uploading}
-                  className="form-input"
-                />
-              </div>
-
               <div className="form-row">
                 <div className="form-group">
-                  <label>Company Name *</label>
+                  <label>Job Title *</label>
                   <input
                     type="text"
-                    name="company"
-                    value={formData.company}
+                    name="jobTitle"
+                    value={formData.jobTitle}
                     onChange={handleChange}
-                    placeholder="e.g., Deloitte, Amazon, Google"
+                    placeholder="e.g., Data Scientist, Marketing Manager"
                     required
-                    disabled={uploading}
+                    disabled={submitting || uploadingFile}
                     className="form-input"
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Application Type *</label>
-                  <select
-                    name="applicationType"
-                    value={formData.applicationType}
+                  <label>Industry</label>
+                  <input
+                    type="text"
+                    name="industry"
+                    value={formData.industry}
                     onChange={handleChange}
-                    disabled={uploading}
+                    placeholder="e.g., Technology, Finance, Healthcare"
+                    disabled={submitting || uploadingFile}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Experience Level</label>
+                  <select
+                    name="experienceLevel"
+                    value={formData.experienceLevel}
+                    onChange={handleChange}
+                    disabled={submitting || uploadingFile}
                     className="form-select"
                   >
-                    <option value="internship">Internship</option>
-                    <option value="graduate">Graduate Job</option>
-                    <option value="parttime">Part-time Job</option>
-                    <option value="bursary">Bursary</option>
-                    <option value="learnership">Learnership</option>
-                    <option value="scholarship">Scholarship</option>
+                    <option value="entry">Entry Level / Graduate</option>
+                    <option value="junior">Junior (1-3 years)</option>
+                    <option value="mid">Mid Level (3-5 years)</option>
+                    <option value="senior">Senior (5+ years)</option>
+                    <option value="executive">Executive / Management</option>
                   </select>
                 </div>
+
+                <div className="form-group">
+                  <label>Deadline (Optional)</label>
+                  <input
+                    type="date"
+                    name="deadline"
+                    value={formData.deadline}
+                    onChange={handleChange}
+                    disabled={submitting || uploadingFile}
+                    className="form-input"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Key Skills (comma separated)</label>
+                <input
+                  type="text"
+                  name="keySkills"
+                  value={formData.keySkills}
+                  onChange={handleChange}
+                  placeholder="e.g., Python, Data Analysis, Project Management"
+                  disabled={submitting || uploadingFile}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Major Achievements</label>
+                <textarea
+                  name="achievements"
+                  value={formData.achievements}
+                  onChange={handleChange}
+                  placeholder="List your key achievements, projects, or accomplishments..."
+                  rows="3"
+                  disabled={submitting || uploadingFile}
+                  className="form-textarea"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Target Companies (Optional)</label>
+                <textarea
+                  name="targetCompanies"
+                  value={formData.targetCompanies}
+                  onChange={handleChange}
+                  placeholder="Specific companies you're targeting or industry preferences..."
+                  rows="2"
+                  disabled={submitting || uploadingFile}
+                  className="form-textarea"
+                />
               </div>
 
               <div className="form-group">
@@ -324,9 +519,9 @@ React.useEffect(() => {
                   name="notes"
                   value={formData.notes}
                   onChange={handleChange}
-                  placeholder="Any special requirements, skills to highlight, or specific instructions..."
+                  placeholder="Any specific requirements, preferred format, or special instructions..."
                   rows="3"
-                  disabled={uploading}
+                  disabled={submitting || uploadingFile}
                   className="form-textarea"
                 />
               </div>
@@ -335,87 +530,242 @@ React.useEffect(() => {
             <button 
               type="submit" 
               className="submit-button"
-              disabled={uploading || !jobPosting || !currentCV || !formData.position || !formData.company}
+              disabled={submitting || uploadingFile || !currentCV || !formData.jobTitle.trim()}
             >
-              {uploading ? (
+              {submitting ? (
                 <>
                   <span className="spinner-small"></span>
-                  SUBMITTING...
+                  SUBMITTING REQUEST...
+                </>
+              ) : uploadingFile ? (
+                <>
+                  <span className="spinner-small"></span>
+                  UPLOADING FILES...
                 </>
               ) : (
-                '🚀 CREATE TAILORED CV'
+                '🚀 SUBMIT CV REQUEST • R399'
               )}
             </button>
+            
+            <div className="price-info">
+              <p>💡 Standard CV tailoring: <strong>R399</strong> | Express (48h): <strong>R599</strong> | Premium (24h + ATS optimization): <strong>R799</strong></p>
+              <p>📞 Need immediate help? WhatsApp: +27 12 345 6789</p>
+            </div>
           </form>
         </div>
 
         {/* Previous Applications */}
         <div className="applications-section">
           <div className="section-header">
-            <h2>📋 Your Applications</h2>
+            <h2>📋 Your CV Requests</h2>
             <span className="applications-count">{applications.length} total</span>
           </div>
 
           {loadingApplications ? (
             <div className="loading-applications">
               <div className="spinner"></div>
-              <p>Loading your applications...</p>
+              <p>Loading your requests...</p>
             </div>
           ) : applications.length === 0 ? (
             <div className="empty-applications">
               <div className="empty-icon">📭</div>
-              <h3>No applications yet</h3>
+              <h3>No requests yet</h3>
               <p>Submit your first CV request above to get started!</p>
             </div>
           ) : (
             <div className="applications-grid">
               {applications.map((app) => {
-                const status = getStatusBadge(app.status);
-                const typeIcon = getApplicationTypeIcon(app.applicationType);
-                const submittedDate = app.submittedAt?.toDate().toLocaleDateString() || 'Recently';
+                const statusDisplay = getStatusDisplay(app.status || 'pending');
+                const experienceDisplay = getExperienceDisplay(app.experienceLevel);
                 
                 return (
                   <div key={app.id} className="application-card">
                     <div className="application-header">
                       <div className="application-type">
-                        <span className="type-icon">{typeIcon}</span>
-                        <span className="type-label">{app.applicationType}</span>
+                        <span className="type-icon">{experienceDisplay.icon}</span>
+                        <span className="type-label">{experienceDisplay.text}</span>
                       </div>
-                      <div className={`status-badge ${status.className}`}>
-                        {status.icon} {status.text}
+                      <div 
+                        className={`status-badge ${statusDisplay.className}`}
+                        style={{ 
+                          backgroundColor: `${statusDisplay.color}20`,
+                          color: statusDisplay.color,
+                          borderColor: statusDisplay.color
+                        }}
+                      >
+                        {statusDisplay.icon} {statusDisplay.text}
+                      </div>
+                      
+                      {/* Status Message - Added */}
+                      <div style={{marginTop: '8px'}}>
+                        <p style={{
+                          color: statusDisplay.color,
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          {statusDisplay.icon} {statusDisplay.message}
+                        </p>
                       </div>
                     </div>
                     
                     <div className="application-body">
-                      <h3>{app.position}</h3>
-                      <p className="company-name">{app.company}</p>
-                      <p className="application-notes">{app.notes || 'No additional notes'}</p>
+                      <h3>{app.jobTitle || 'CV Tailoring'}</h3>
+                      {app.industry && (
+                        <p className="company-name">{app.industry}</p>
+                      )}
                       
-                      <div className="application-meta">
-                        <div className="meta-item">
-                          <span className="meta-label">Submitted</span>
-                          <span className="meta-value">{submittedDate}</span>
+                      <div className="application-details">
+                        {app.keySkills && app.keySkills.length > 0 && (
+                          <div className="detail-item">
+                            <span className="detail-label">Skills:</span>
+                            <span className="detail-value">{Array.isArray(app.keySkills) ? app.keySkills.join(', ') : app.keySkills}</span>
+                          </div>
+                        )}
+                        
+                        <div className="detail-item">
+                          <span className="detail-label">Submitted:</span>
+                          <span className="detail-value">{formatDate(app.createdAt)}</span>
                         </div>
-                        <div className="meta-item">
-                          <span className="meta-label">CV Status</span>
-                          <span className="meta-value">{status.text}</span>
-                        </div>
+                        
+                        {app.deadline && (
+                          <div className="detail-item">
+                            <span className="detail-label">Deadline:</span>
+                            <span className="detail-value">{app.deadline}</span>
+                          </div>
+                        )}
+                        
+                        {app.priceEstimate && (
+                          <div className="detail-item">
+                            <span className="detail-label">Price:</span>
+                            <span className="detail-value price-value">R{app.priceEstimate}</span>
+                          </div>
+                        )}
                       </div>
+                      
+                      {/* Original CV Section */}
+                      {app.currentCV && (
+                        <div className="cv-available" style={{marginBottom: '10px'}}>
+                          <span className="cv-icon">📄</span>
+                          <span>Your Original CV</span>
+                          <a 
+                            href={app.currentCV} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="download-btn"
+                            style={{marginLeft: '10px'}}
+                          >
+                            Download
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Tailored CV Section - NEW */}
+                      {app.tailoredCV && (
+                        <div className="tailored-cv-available" style={{
+                          background: '#d1fae5',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          marginTop: '10px',
+                          border: '1px solid #10b981'
+                        }}>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px'}}>
+                            <span style={{fontSize: '20px'}}>✅</span>
+                            <strong style={{color: '#047857'}}>Tailored CV Ready!</strong>
+                          </div>
+                          <p style={{color: '#065f46', fontSize: '14px', marginBottom: '10px'}}>
+                            Your professionally tailored CV is ready for download.
+                            {app.tailoredFileName && ` File: ${app.tailoredFileName}`}
+                          </p>
+                          <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                            <a 
+                              href={app.tailoredCV} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="download-btn"
+                              style={{
+                                background: '#10b981',
+                                color: 'white',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                textDecoration: 'none',
+                                fontWeight: '500',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}
+                            >
+                              📥 Download Tailored CV
+                            </a>
+                            {app.tailoredCV.includes('.pdf') && (
+                              <a 
+                                href={app.tailoredCV} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{
+                                  background: '#3b82f6',
+                                  color: 'white',
+                                  padding: '8px 16px',
+                                  borderRadius: '6px',
+                                  textDecoration: 'none',
+                                  fontWeight: '500',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px'
+                                }}
+                              >
+                                👁️ View PDF
+                              </a>
+                            )}
+                          </div>
+                          {app.completedAt && (
+                            <p style={{marginTop: '8px', fontSize: '12px', color: '#047857'}}>
+                              Completed: {formatDate(app.completedAt)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Admin Notes Section */}
+                      {app.adminNotes && (
+                        <div className="admin-notes" style={{
+                          background: '#fef3c7',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          marginTop: '10px',
+                          border: '1px solid #f59e0b'
+                        }}>
+                          <strong>📝 Admin Notes:</strong>
+                          <p style={{marginTop: '5px', color: '#92400e'}}>{app.adminNotes}</p>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="application-actions">
-                      {app.tailoredCVURL ? (
+                      {app.currentCV && (
                         <a 
-                          href={app.tailoredCVURL} 
+                          href={app.currentCV} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="download-btn"
+                          className="action-btn"
                         >
-                          📥 Download CV
+                          📄 View Original CV
                         </a>
+                      )}
+                      
+                      {/* Delete Button - Only show for pending or reviewing status */}
+                      {(app.status === 'pending' || app.status === 'reviewing') ? (
+                        <button 
+                          onClick={() => handleDeleteCVRequest(app.id)}
+                          className="action-btn delete"
+                        >
+                          🗑️ Delete
+                        </button>
                       ) : (
-                        <button className="view-btn" disabled>
-                          ⏳ Processing
+                        <button className="action-btn" disabled>
+                          {app.status === 'completed' ? '💬 Request Revision' : '⏳ Awaiting Review'}
                         </button>
                       )}
                     </div>
@@ -428,27 +778,34 @@ React.useEffect(() => {
 
         {/* Tips Section */}
         <div className="tips-section">
-          <h3>💡 Tips for Better Results</h3>
-          <div className="tips-list">
-            <div className="tip-item">
-              <div className="tip-icon">📷</div>
-              <div className="tip-content">
-                <strong>Clear Job Posting Screenshot</strong>
-                <p>Make sure all requirements are visible in your screenshot</p>
-              </div>
-            </div>
-            <div className="tip-item">
+          <h3>💡 Tips for Best Results</h3>
+          <div className="tips-grid">
+            <div className="tip-card">
               <div className="tip-icon">📄</div>
               <div className="tip-content">
                 <strong>Use Word Format</strong>
-                <p>Upload .docx files for easier editing and better results</p>
+                <p>Upload .docx files for easier editing and optimization</p>
               </div>
             </div>
-            <div className="tip-item">
+            <div className="tip-card">
               <div className="tip-icon">🎯</div>
               <div className="tip-content">
                 <strong>Be Specific</strong>
-                <p>Include all relevant skills and experiences in your notes</p>
+                <p>Include exact job requirements for better tailoring</p>
+              </div>
+            </div>
+            <div className="tip-card">
+              <div className="tip-icon">⏰</div>
+              <div className="tip-content">
+                <strong>Plan Ahead</strong>
+                <p>Submit 3-5 days before your application deadline</p>
+              </div>
+            </div>
+            <div className="tip-card">
+              <div className="tip-icon">📞</div>
+              <div className="tip-content">
+                <strong>Get Support</strong>
+                <p>Chat with our career advisors for personalized advice</p>
               </div>
             </div>
           </div>

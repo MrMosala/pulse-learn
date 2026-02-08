@@ -1,20 +1,23 @@
 // frontend/src/pages/Assignments.js
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
+import { uploadAssignment, logUserActivity } from '../services/firebase'; // Use our new functions
 import '../App.css';
 
 function Assignments() {
   const [file, setFile] = useState(null);
   const [assignmentType, setAssignmentType] = useState('question');
   const [urgency, setUrgency] = useState('1week');
+  const [subject, setSubject] = useState('');
+  const [topic, setTopic] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [submissions, setSubmissions] = useState([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(true);
+  
   const { currentUser, userProfile } = useAuth();
 
   // Fetch user's submissions
@@ -23,25 +26,16 @@ function Assignments() {
       if (!currentUser) return;
       
       try {
-        const q = query(
-          collection(db, 'assignments'),
-          where('studentId', '==', currentUser.uid)
-        );
-        const querySnapshot = await getDocs(q);
-        
-        const subs = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          subs.push({ 
-            id: doc.id, 
-            ...data,
-            submittedAt: data.submittedAt?.toDate() || new Date()
-          });
-        });
+        // Import the functions we need
+        const { getAllUserAssignments } = await import('../services/firebase');
+        const userAssignments = await getAllUserAssignments(currentUser.uid);
         
         // Sort by most recent
-        subs.sort((a, b) => b.submittedAt - a.submittedAt);
-        setSubmissions(subs);
+        const sortedAssignments = userAssignments.sort((a, b) => 
+          b.createdAt?.toDate() - a.createdAt?.toDate()
+        );
+        
+        setSubmissions(sortedAssignments);
       } catch (error) {
         console.error('Error fetching submissions:', error);
       } finally {
@@ -60,58 +54,82 @@ function Assignments() {
       return;
     }
 
+    if (!subject.trim()) {
+      setMessage('Please enter the subject');
+      return;
+    }
+
     try {
       setUploading(true);
       setMessage('');
 
-      // Upload file to Firebase Storage
-      const fileRef = ref(storage, `assignments/${currentUser.uid}/${Date.now()}_${file.name}`);
-      await uploadBytes(fileRef, file);
-      const fileURL = await getDownloadURL(fileRef);
-
-      // Create assignment document in Firestore
-      await addDoc(collection(db, 'assignments'), {
-        studentId: currentUser.uid,
-        studentName: userProfile?.displayName || 'Student',
-        studentNumber: userProfile?.studentNumber || '',
-        fileURL: fileURL,
-        fileName: file.name,
-        type: assignmentType,
+      // Prepare assignment data
+      const assignmentData = {
+        subject: subject.trim(),
+        topic: topic.trim(),
+        instructions: instructions.trim(),
+        deadline: deadline || null,
         urgency: urgency,
-        status: 'pending',
-        submittedAt: serverTimestamp(),
-        completedAt: null,
-        solutionURL: null
-      });
+        type: assignmentType
+      };
 
-      setMessage('✅ Assignment submitted successfully!');
-      setFile(null);
-      e.target.reset();
-      
-      // Refresh submissions list
-      window.location.reload();
+      // Use our new uploadAssignment function
+      const result = await uploadAssignment(
+        currentUser.uid,
+        {
+          firstName: userProfile?.firstName || userProfile?.displayName?.split(' ')[0] || '',
+          lastName: userProfile?.lastName || userProfile?.displayName?.split(' ').slice(1).join(' ') || '',
+          email: userProfile?.email || currentUser.email,
+          totalUploads: userProfile?.totalUploads || 0
+        },
+        file,
+        assignmentData
+      );
+
+      if (result.success) {
+        setMessage('✅ Assignment submitted successfully!');
+        setFile(null);
+        setSubject('');
+        setTopic('');
+        setInstructions('');
+        setDeadline('');
+        e.target.reset();
+        
+        // Log activity
+        await logUserActivity(currentUser.uid, 'ASSIGNMENT_UPLOADED', {
+          assignmentId: result.assignmentId,
+          fileName: file.name,
+          subject: assignmentData.subject
+        });
+        
+        // Refresh submissions list
+        window.location.reload();
+      } else {
+        throw new Error(result.error || 'Failed to upload assignment');
+      }
     } catch (error) {
       console.error('Error submitting assignment:', error);
-      setMessage('❌ Error submitting assignment. Please try again.');
+      setMessage(`❌ Error: ${error.message}`);
     } finally {
       setUploading(false);
     }
   }
 
-  const getUrgencyDisplay = (urgency) => {
-    switch (urgency) {
-      case '24hours': return { text: '24 Hours', color: '#EF4444', icon: '🚨' };
-      case '48hours': return { text: '48 Hours', color: '#F59E0B', icon: '⚡' };
-      case '1week': return { text: '1 Week', color: '#10B981', icon: '📅' };
-      default: return { text: 'Standard', color: '#6B7280', icon: '📋' };
+  const getUrgencyDisplay = (urgencyLevel) => {
+    switch (urgencyLevel) {
+      case '24hours': return { text: '24 Hours', color: '#EF4444', icon: '🚨', price: 'R499' };
+      case '48hours': return { text: '48 Hours', color: '#F59E0B', icon: '⚡', price: 'R399' };
+      case '1week': return { text: '1 Week', color: '#10B981', icon: '📅', price: 'R299' };
+      default: return { text: 'Standard', color: '#6B7280', icon: '📋', price: 'R299' };
     }
   };
 
   const getStatusDisplay = (status) => {
     switch (status) {
       case 'completed': return { text: 'Completed', color: '#10B981', icon: '✅' };
-      case 'reviewing': return { text: 'Reviewing', color: '#3B82F6', icon: '📝' };
-      case 'in_progress': return { text: 'In Progress', color: '#8B5CF6', icon: '🔄' };
+      case 'in-progress': return { text: 'In Progress', color: '#3B82F6', icon: '🔄' };
+      case 'reviewing': return { text: 'Reviewing', color: '#8B5CF6', icon: '📝' };
+      case 'revision-requested': return { text: 'Revision Requested', color: '#F59E0B', icon: '📝' };
       default: return { text: 'Pending', color: '#F59E0B', icon: '⏳' };
     }
   };
@@ -122,12 +140,15 @@ function Assignments() {
       case 'full': return { text: 'Full Assignment', icon: '📚' };
       case 'quiz': return { text: 'Quiz Prep', icon: '📝' };
       case 'study': return { text: 'Study Guide', icon: '📖' };
+      case 'essay': return { text: 'Essay Writing', icon: '✍️' };
+      case 'project': return { text: 'Project Help', icon: '💻' };
       default: return { text: 'Assignment', icon: '📄' };
     }
   };
 
-  const formatDate = (date) => {
-    if (!date) return 'Recently';
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Recently';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     const diffTime = Math.abs(now - date);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -136,7 +157,55 @@ function Assignments() {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('en-ZA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const handleRequestRevision = async (assignmentId) => {
+    const revisionNotes = prompt('Please explain what needs revision:');
+    if (!revisionNotes || revisionNotes.trim() === '') return;
+    
+    try {
+      // Import the function
+      const { requestAssignmentRevision } = await import('../services/firebase');
+      const result = await requestAssignmentRevision(assignmentId, currentUser.uid, revisionNotes.trim());
+      
+      if (result.success) {
+        setMessage('✅ Revision requested successfully! Tutor will review your request.');
+        // Refresh submissions list
+        window.location.reload();
+      } else {
+        throw new Error(result.error || 'Failed to request revision');
+      }
+    } catch (error) {
+      console.error('Error requesting revision:', error);
+      setMessage(`❌ Error: ${error.message}`);
+    }
+  };
+
+  const handleDeleteSubmission = async (assignmentId) => {
+    if (!window.confirm('Are you sure you want to delete this submission? This cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const { deleteUserAssignment } = await import('../services/firebase');
+      const result = await deleteUserAssignment(assignmentId, currentUser.uid);
+      
+      if (result.success) {
+        setMessage('✅ Submission deleted successfully!');
+        // Remove from local state
+        setSubmissions(submissions.filter(sub => sub.id !== assignmentId));
+      } else {
+        throw new Error(result.error || 'Failed to delete submission');
+      }
+    } catch (error) {
+      console.error('Error deleting submission:', error);
+      setMessage(`❌ Error: ${error.message}`);
+    }
   };
 
   return (
@@ -153,7 +222,13 @@ function Assignments() {
           <div className="info-card-icon">🎯</div>
           <div className="info-card-content">
             <h3>How It Works</h3>
-            <p>Upload your assignment, select the type of help needed, and choose urgency. Our tutors will provide detailed solutions and explanations.</p>
+            <ol className="how-it-works">
+              <li>📤 Upload your assignment file (PDF, DOCX, Images)</li>
+              <li>📝 Provide assignment details and deadline</li>
+              <li>💰 Get instant price estimate based on urgency</li>
+              <li>✅ Receive expert solution with explanations</li>
+              <li>💬 Chat with tutor if you need clarification</li>
+            </ol>
           </div>
         </div>
 
@@ -174,7 +249,7 @@ function Assignments() {
           <form onSubmit={handleSubmit}>
             {/* File Upload */}
             <div className="upload-section">
-              <h3>Upload Assignment File</h3>
+              <h3>1. Upload Assignment File</h3>
               <div 
                 className={`upload-area-large ${file ? 'has-file' : ''}`}
                 onClick={() => document.getElementById('file-input').click()}
@@ -205,6 +280,35 @@ function Assignments() {
 
             {/* Assignment Details */}
             <div className="form-details-section">
+              <h3>2. Assignment Details</h3>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Subject *</label>
+                  <input
+                    type="text"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="e.g., Mathematics, Physics, Accounting"
+                    disabled={uploading}
+                    required
+                    className="form-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Topic (Optional)</label>
+                  <input
+                    type="text"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="e.g., Calculus, Thermodynamics"
+                    disabled={uploading}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Assignment Type</label>
@@ -226,59 +330,80 @@ function Assignments() {
                 </div>
 
                 <div className="form-group">
-                  <label>Urgency Level</label>
-                  <div className="urgency-buttons">
-                    <button
-                      type="button"
-                      className={`urgency-btn ${urgency === '1week' ? 'active' : ''}`}
-                      onClick={() => setUrgency('1week')}
-                      disabled={uploading}
-                    >
-                      📅 1 Week
-                    </button>
-                    <button
-                      type="button"
-                      className={`urgency-btn ${urgency === '48hours' ? 'active' : ''}`}
-                      onClick={() => setUrgency('48hours')}
-                      disabled={uploading}
-                    >
-                      ⚡ 48 Hours
-                    </button>
-                    <button
-                      type="button"
-                      className={`urgency-btn ${urgency === '24hours' ? 'active' : ''}`}
-                      onClick={() => setUrgency('24hours')}
-                      disabled={uploading}
-                    >
-                      🚨 24 Hours
-                    </button>
-                  </div>
+                  <label>Deadline (Optional)</label>
+                  <input
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    disabled={uploading}
+                    className="form-input"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
                 </div>
               </div>
 
-              {/* Urgency Info */}
-              <div className="urgency-info">
-                <div className="info-item">
-                  <span className="info-icon">📅</span>
-                  <div>
-                    <strong>1 Week</strong>
-                    <p>Standard review with detailed feedback</p>
-                  </div>
+              <div className="form-group">
+                <label>Special Instructions (Optional)</label>
+                <textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder="Any specific requirements or instructions for the tutor..."
+                  disabled={uploading}
+                  className="form-textarea"
+                  rows="3"
+                />
+              </div>
+
+              {/* Urgency Selection */}
+              <div className="form-group">
+                <label>3. Select Urgency Level</label>
+                <div className="urgency-cards">
+                  {['1week', '48hours', '24hours'].map((level) => {
+                    const urgencyDisplay = getUrgencyDisplay(level);
+                    return (
+                      <div 
+                        key={level}
+                        className={`urgency-card ${urgency === level ? 'active' : ''}`}
+                        onClick={() => setUrgency(level)}
+                      >
+                        <div className="urgency-icon">{urgencyDisplay.icon}</div>
+                        <div className="urgency-content">
+                          <div className="urgency-title">{urgencyDisplay.text}</div>
+                          <div className="urgency-price">{urgencyDisplay.price}</div>
+                          <div className="urgency-description">
+                            {level === '1week' && 'Standard detailed solution'}
+                            {level === '48hours' && 'Priority service'}
+                            {level === '24hours' && 'Express urgent service'}
+                          </div>
+                        </div>
+                        {urgency === level && (
+                          <div className="urgency-selected">✓ Selected</div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="info-item">
-                  <span className="info-icon">⚡</span>
-                  <div>
-                    <strong>48 Hours</strong>
-                    <p>Priority service with quick turnaround</p>
-                  </div>
+              </div>
+
+              {/* Price Summary */}
+              <div className="price-summary">
+                <div className="summary-item">
+                  <span>Base Price:</span>
+                  <span>R199</span>
                 </div>
-                <div className="info-item">
-                  <span className="info-icon">🚨</span>
-                  <div>
-                    <strong>24 Hours</strong>
-                    <p>Express service for urgent deadlines</p>
-                  </div>
+                <div className="summary-item">
+                  <span>Urgency ({getUrgencyDisplay(urgency).text}):</span>
+                  <span>{getUrgencyDisplay(urgency).price}</span>
                 </div>
+                <div className="summary-total">
+                  <span>Estimated Total:</span>
+                  <span className="total-amount">
+                    {urgency === '24hours' ? 'R499' : urgency === '48hours' ? 'R399' : 'R299'}
+                  </span>
+                </div>
+                <p className="price-note">
+                  💡 Final price may vary based on assignment complexity. You'll receive a confirmed quote before proceeding.
+                </p>
               </div>
             </div>
 
@@ -286,7 +411,7 @@ function Assignments() {
             <button 
               type="submit" 
               className="submit-button"
-              disabled={uploading || !file}
+              disabled={uploading || !file || !subject.trim()}
             >
               {uploading ? (
                 <>
@@ -294,7 +419,7 @@ function Assignments() {
                   UPLOADING...
                 </>
               ) : (
-                '🚀 SUBMIT ASSIGNMENT'
+                `🚀 SUBMIT ASSIGNMENT • ${urgency === '24hours' ? 'R499' : urgency === '48hours' ? 'R399' : 'R299'}`
               )}
             </button>
           </form>
@@ -346,11 +471,12 @@ function Assignments() {
                     
                     <div className="submission-body">
                       <h3>{submission.fileName}</h3>
+                      <p className="subject-text">{submission.subject || 'General'}</p>
                       
                       <div className="submission-meta">
                         <div className="meta-item">
                           <span className="meta-label">Submitted</span>
-                          <span className="meta-value">{formatDate(submission.submittedAt)}</span>
+                          <span className="meta-value">{formatDate(submission.createdAt)}</span>
                         </div>
                         <div className="meta-item">
                           <span className="meta-label">Urgency</span>
@@ -361,35 +487,94 @@ function Assignments() {
                             {urgencyDisplay.icon} {urgencyDisplay.text}
                           </span>
                         </div>
+                        {submission.priceEstimate && (
+                          <div className="meta-item">
+                            <span className="meta-label">Price</span>
+                            <span className="meta-value price-value">
+                              R{submission.priceEstimate}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       
-                      {submission.solutionURL && (
+                      {submission.adminNotes && (
+                        <div className="admin-notes">
+                          <strong>Tutor Notes:</strong>
+                          <p>{submission.adminNotes}</p>
+                        </div>
+                      )}
+                      
+                      {/* Original File */}
+                      {submission.fileUrl && (
+                        <div className="file-available">
+                          <span className="file-icon">📄</span>
+                          <span>Your uploaded file:</span>
+                          <a 
+                            href={submission.fileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="download-btn"
+                          >
+                            Download Original
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Solution File - IF ADMIN UPLOADED ONE */}
+                      {submission.solutionUrl && (
                         <div className="solution-available">
                           <span className="solution-icon">✅</span>
-                          <span>Solution available!</span>
+                          <span>Solution available:</span>
                           <a 
-                            href={submission.solutionURL} 
+                            href={submission.solutionUrl} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="view-solution-btn"
                           >
-                            View Solution
+                            Download Solution
                           </a>
+                          {submission.solutionFileName && (
+                            <span className="file-name">({submission.solutionFileName})</span>
+                          )}
                         </div>
                       )}
                     </div>
                     
                     <div className="submission-actions">
-                      <a 
-                        href={submission.fileURL} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      {submission.fileUrl && (
+                        <a 
+                          href={submission.fileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="action-btn"
+                        >
+                          📄 View Original File
+                        </a>
+                      )}
+                      {submission.solutionUrl && (
+                        <a 
+                          href={submission.solutionUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="action-btn success"
+                        >
+                          ✅ Download Solution
+                        </a>
+                      )}
+                      <button 
                         className="action-btn"
+                        onClick={() => handleRequestRevision(submission.id)}
+                        disabled={submission.status !== 'completed' || submission.status === 'revision-requested'}
                       >
-                        📄 View Original
-                      </a>
-                      <button className="action-btn" disabled={!submission.solutionURL}>
-                        {submission.solutionURL ? '💬 Chat with Tutor' : '⏳ Awaiting Response'}
+                        {submission.status === 'revision-requested' ? '📝 Revision Requested' : 
+                         submission.status === 'completed' ? '💬 Request Revision' : '⏳ Awaiting Review'}
+                      </button>
+                      <button 
+                        className="action-btn delete"
+                        onClick={() => handleDeleteSubmission(submission.id)}
+                        disabled={!['pending', 'reviewing'].includes(submission.status)}
+                      >
+                        🗑️ Delete
                       </button>
                     </div>
                   </div>

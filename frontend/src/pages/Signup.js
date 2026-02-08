@@ -2,17 +2,20 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { createUserProfile } from '../services/firebase'; // ADD THIS IMPORT
 import '../styles/auth.css';
 
 function Signup() {
   const [formData, setFormData] = useState({
-    displayName: '',
+    firstName: '', // CHANGED from displayName to firstName
+    lastName: '', // ADDED lastName field
     email: '',
     password: '',
     confirmPassword: '',
     studentNumber: '',
     university: '',
-    course: ''
+    course: '',
+    phoneNumber: '' // ADDED optional phone
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,6 +32,7 @@ function Signup() {
   async function handleSubmit(e) {
     e.preventDefault();
 
+    // Validation
     if (formData.password !== formData.confirmPassword) {
       return setError('Passwords do not match');
     }
@@ -40,23 +44,59 @@ function Signup() {
     try {
       setError('');
       setLoading(true);
-      await signup(
+      
+      // 1. Create Firebase Auth user
+      const userCredential = await signup(
         formData.email,
         formData.password,
-        formData.displayName,
+        formData.firstName, // Updated parameter
+        formData.lastName, // Added parameter
         formData.studentNumber,
         formData.university,
         formData.course
       );
+      
+      const userId = userCredential.user.uid;
+      
+      // 2. Save user data to Firestore database
+      const userProfileData = {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        studentNumber: formData.studentNumber,
+        university: formData.university,
+        course: formData.course,
+        phoneNumber: formData.phoneNumber || '',
+        registrationSource: 'website',
+        profileComplete: false // Will complete profile later
+      };
+      
+      const result = await createUserProfile(userId, userProfileData);
+      
+      if (!result.success) {
+        throw new Error('Failed to save user profile to database');
+      }
+      
+      // 3. Navigate to dashboard
       navigate('/dashboard');
+      
     } catch (error) {
-      console.error(error);
+      console.error('Signup error:', error);
+      
+      // User-friendly error messages
       if (error.code === 'auth/email-already-in-use') {
-        setError('Email already in use');
+        setError('Email already in use. Please login instead.');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Invalid email address format.');
+      } else if (error.code === 'auth/weak-password') {
+        setError('Password is too weak. Use at least 6 characters.');
+      } else if (error.message.includes('Failed to save')) {
+        setError('Account created but profile setup failed. Please contact support.');
       } else {
         setError('Failed to create account. Please try again.');
       }
     }
+    
     setLoading(false);
   }
 
@@ -74,17 +114,33 @@ function Signup() {
           )}
 
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>FULL NAME</label>
-              <input
-                type="text"
-                name="displayName"
-                value={formData.displayName}
-                onChange={handleChange}
-                required
-                placeholder="e.g., Thabo Nkosi"
-                disabled={loading}
-              />
+            {/* ADDED: Name fields split into first and last */}
+            <div className="form-row">
+              <div className="form-group">
+                <label>FIRST NAME</label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., Thabo"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>LAST NAME</label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g., Nkosi"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             <div className="form-group">
@@ -115,6 +171,20 @@ function Signup() {
               </div>
 
               <div className="form-group">
+                <label>PHONE NUMBER (Optional)</label>
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  placeholder="+27 12 345 6789"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
                 <label>PASSWORD</label>
                 <input
                   type="password"
@@ -127,19 +197,19 @@ function Signup() {
                   disabled={loading}
                 />
               </div>
-            </div>
 
-            <div className="form-group">
-              <label>CONFIRM PASSWORD</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                placeholder="Re-enter password"
-                disabled={loading}
-              />
+              <div className="form-group">
+                <label>CONFIRM PASSWORD</label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  placeholder="Re-enter password"
+                  disabled={loading}
+                />
+              </div>
             </div>
 
             <div className="form-group">
