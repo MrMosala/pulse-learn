@@ -393,6 +393,116 @@ export const bookCrunchTimeSession = async (userId, userData, sessionData) => {
   }
 };
 
+/**
+ * Get all upcoming CrunchTime sessions for admin
+ * @returns {Array} List of all upcoming sessions sorted by date
+ */
+export const getUpcomingSessions = async () => {
+  try {
+    const sessionsRef = collection(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS);
+    const q = query(
+      sessionsRef,
+      orderBy('dateTime', 'asc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    const sessions = [];
+    querySnapshot.forEach((doc) => {
+      sessions.push({ 
+        id: doc.id, 
+        ...doc.data() 
+      });
+    });
+    
+    return sessions;
+  } catch (error) {
+    console.error('Error getting upcoming sessions:', error);
+    return [];
+  }
+};
+
+/**
+ * Update CrunchTime session status and details
+ * @param {string} sessionId - The session ID
+ * @param {Object} updates - Updates to apply
+ * @returns {Object} Success status
+ */
+export const updateSessionStatus = async (sessionId, updates) => {
+  try {
+    const sessionRef = doc(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS, sessionId);
+    
+    // Filter out undefined values
+    const cleanUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined)
+    );
+    
+    await updateDoc(sessionRef, {
+      ...cleanUpdates,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Create notification for user if status changed
+    if (updates.status) {
+      const sessionDoc = await getDoc(sessionRef);
+      const sessionData = sessionDoc.data();
+      
+      await createAdminNotification('SESSION_UPDATED', {
+        sessionId,
+        userId: sessionData.userId,
+        userName: sessionData.userName,
+        newStatus: updates.status,
+        meetingLink: updates.meetingLink || null  // Use null instead of undefined
+      });
+      
+      // Log activity
+      await logUserActivity(sessionData.userId, 'SESSION_STATUS_UPDATED', {
+        sessionId,
+        oldStatus: sessionData.status,
+        newStatus: updates.status
+      });
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating session:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Generate a Google Meet link (placeholder - integrate with Google API later)
+ * @returns {string} Generated meeting link
+ */
+export const generateMeetingLink = async () => {
+  // Placeholder - in PHASE 3 we'll integrate with Google Meet API
+  const randomId = Math.random().toString(36).substring(7);
+  return `https://meet.google.com/pulse-${randomId}`;
+};
+
+/**
+ * Assign meeting link to session
+ * @param {string} sessionId - The session ID
+ * @param {string} meetingLink - The meeting link
+ * @returns {Object} Success status
+ */
+export const assignMeetingLink = async (sessionId, meetingLink) => {
+  try {
+    const sessionRef = doc(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS, sessionId);
+    
+    await updateDoc(sessionRef, {
+      meetingLink,
+      status: 'confirmed',
+      updatedAt: serverTimestamp()
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error assigning meeting link:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // ==================== ACTIVITY LOGGING ====================
 export const logUserActivity = async (userId, action, details = {}) => {
   try {
@@ -412,9 +522,14 @@ export const logUserActivity = async (userId, action, details = {}) => {
 // ==================== ADMIN NOTIFICATIONS ====================
 export const createAdminNotification = async (type, data) => {
   try {
+    // Remove undefined values from data
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+    
     await addDoc(collection(db, DB_COLLECTIONS.ADMIN_NOTIFICATIONS), {
       type,
-      data,
+      data: cleanData,  // Use cleaned data
       read: false,
       createdAt: serverTimestamp()
     });
@@ -503,27 +618,6 @@ export const getPendingCVRequests = async () => {
     return requests;
   } catch (error) {
     console.error('Error getting pending CV requests:', error);
-    return [];
-  }
-};
-
-export const getUpcomingSessions = async () => {
-  try {
-    const sessionsRef = collection(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS);
-    const q = query(sessionsRef, 
-      where('status', 'in', ['requested', 'confirmed']),
-      orderBy('dateTime', 'asc')
-    );
-    const querySnapshot = await getDocs(q);
-    
-    const sessions = [];
-    querySnapshot.forEach((doc) => {
-      sessions.push({ id: doc.id, ...doc.data() });
-    });
-    
-    return sessions;
-  } catch (error) {
-    console.error('Error getting upcoming sessions:', error);
     return [];
   }
 };
@@ -660,6 +754,73 @@ const getAllUserCVRequestsManual = async (userId) => {
     });
     
     return userRequests;
+  } catch (error) {
+    console.error('Error in manual fallback:', error);
+    return [];
+  }
+};
+
+/**
+ * Get all CrunchTime sessions for a specific user
+ * Useful for: User dashboard, session history, admin viewing user's sessions
+ * @param {string} userId - The user's ID
+ * @returns {Array} List of user's sessions sorted by date (soonest first)
+ */
+export const getUserCrunchTimeSessions = async (userId) => {
+  try {
+    const sessionsRef = collection(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS);
+    const q = query(
+      sessionsRef,
+      where('userId', '==', userId),
+      orderBy('dateTime', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    const sessions = [];
+    querySnapshot.forEach((doc) => {
+      sessions.push({ 
+        id: doc.id, 
+        ...doc.data() 
+      });
+    });
+    
+    return sessions;
+  } catch (error) {
+    console.error('Error getting user CrunchTime sessions:', error);
+    
+    // If error is about index, fall back to manual filtering
+    if (error.code === 'failed-precondition') {
+      console.log('Index missing, using manual filter...');
+      return await getUserCrunchTimeSessionsManual(userId);
+    }
+    
+    return [];
+  }
+};
+
+// Fallback function if index is missing
+const getUserCrunchTimeSessionsManual = async (userId) => {
+  try {
+    const sessionsRef = collection(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS);
+    const querySnapshot = await getDocs(sessionsRef);
+    
+    const allSessions = [];
+    querySnapshot.forEach((doc) => {
+      allSessions.push({ id: doc.id, ...doc.data() });
+    });
+    
+    // Filter for current user
+    const userSessions = allSessions.filter(session => session.userId === userId);
+    
+    // Sort manually by date
+    userSessions.sort((a, b) => {
+      const dateA = a.dateTime?.toDate ? a.dateTime.toDate() : new Date(a.dateTime || 0);
+      const dateB = b.dateTime?.toDate ? b.dateTime.toDate() : new Date(b.dateTime || 0);
+      return dateA - dateB;
+    });
+    
+    return userSessions;
   } catch (error) {
     console.error('Error in manual fallback:', error);
     return [];
@@ -885,20 +1046,6 @@ export const updateCVRequestStatus = async (requestId, updates) => {
     return { success: true };
   } catch (error) {
     console.error('Error updating CV request:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-export const updateSessionStatus = async (sessionId, updates) => {
-  try {
-    const sessionRef = doc(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS, sessionId);
-    await updateDoc(sessionRef, {
-      ...updates,
-      updatedAt: serverTimestamp()
-    });
-    return { success: true };
-  } catch (error) {
-    console.error('Error updating session:', error);
     return { success: false, error: error.message };
   }
 };

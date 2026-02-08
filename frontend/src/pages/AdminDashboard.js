@@ -14,7 +14,8 @@ import {
   getAllCVRequests,
   updateCVRequestStatus,
   uploadTailoredCV,
-  deleteCVRequest
+  deleteCVRequest,
+  updateSessionStatus  // NEW: Added this import
 } from '../services/firebase';
 import '../App.css';
 
@@ -44,6 +45,11 @@ function AdminDashboard() {
   const [cvPriceEstimate, setCvPriceEstimate] = useState('');
   const [uploadingCV, setUploadingCV] = useState(null);
   
+  // NEW: CrunchTime sessions state
+  const [crunchTimeSessions, setCrunchTimeSessions] = useState([]);
+  const [sessionAdminNotes, setSessionAdminNotes] = useState('');
+  const [meetingLink, setMeetingLink] = useState('');
+  
   const { userProfile } = useAuth();
 
   useEffect(() => {
@@ -65,12 +71,12 @@ function AdminDashboard() {
           console.error('Error getting assignments:', err);
           return [];
         }),
-        getAllCVRequests().catch(err => {  // NEW: Fetch all CV requests
+        getAllCVRequests().catch(err => {
           console.error('Error getting CV requests:', err);
           return [];
         }),
-        getUpcomingSessions().catch(err => {
-          console.error('Error getting sessions:', err);
+        getUpcomingSessions().catch(err => {  // NEW: Fetch CrunchTime sessions
+          console.error('Error getting CrunchTime sessions:', err);
           return [];
         }),
         getRecentActivity(20).catch(err => {
@@ -90,15 +96,16 @@ function AdminDashboard() {
       
       setUsers(allUsers);
       setAssignments(pendingAssignments);
-      setCvRequests(allCvRequests);  // NEW: Set CV requests state
+      setCvRequests(allCvRequests);
+      setCrunchTimeSessions(upcomingSessions);  // NEW: Set CrunchTime sessions
       setRecentActivity(recentActivities);
       setNotifications(unreadNotifications);
       
       setStats({
         totalStudents: allUsers.length,
         pendingAssignments: pendingAssignments.length,
-        cvRequests: allCvRequests.filter(cv => cv.status === 'pending').length,  // Count pending
-        upcomingSessions: upcomingSessions.length,
+        cvRequests: allCvRequests.filter(cv => cv.status === 'pending').length,
+        upcomingSessions: upcomingSessions.filter(s => s.status === 'requested' || s.status === 'confirmed').length,  // Updated
         totalRevenue,
         activeSubscriptions: paidUsers.length
       });
@@ -117,8 +124,8 @@ function AdminDashboard() {
       // Improved updates object with conditional inclusion
       const updates = {
         status: newStatus,
-        ...(adminNotes && { adminNotes }), // Only include if not empty
-        ...(priceEstimate && { priceEstimate: Number(priceEstimate) }), // Convert to number
+        ...(adminNotes && { adminNotes }),
+        ...(priceEstimate && { priceEstimate: Number(priceEstimate) }),
       };
       
       const result = await updateAssignmentStatus(assignmentId, updates);
@@ -130,6 +137,66 @@ function AdminDashboard() {
     } catch (error) {
       console.error('Error updating assignment:', error);
       alert('Failed to update assignment');
+    } finally {
+      setUpdatingAssignment(null);
+    }
+  };
+
+  // NEW: Session status update handler
+  const handleUpdateSessionStatus = async (sessionId, updates) => {
+    try {
+      setUpdatingAssignment(sessionId);
+      
+      const cleanUpdates = {
+        ...updates,
+        ...(sessionAdminNotes && { adminNotes: sessionAdminNotes }),
+        ...(meetingLink && { meetingLink }),
+        updatedAt: new Date()
+      };
+      
+      const result = await updateSessionStatus(sessionId, cleanUpdates);
+      
+      if (result.success) {
+        setSessionAdminNotes('');
+        setMeetingLink('');
+        fetchAdminData();
+        alert('Session updated successfully!');
+      } else {
+        alert('Failed to update session: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating session:', error);
+      alert('Failed to update session: ' + error.message);
+    } finally {
+      setUpdatingAssignment(null);
+    }
+  };
+
+  // NEW: Assign meeting link handler
+  const handleAssignMeetingLink = async (sessionId) => {
+    if (!meetingLink.trim()) {
+      alert('Please enter a meeting link');
+      return;
+    }
+    
+    try {
+      setUpdatingAssignment(sessionId);
+      const result = await updateSessionStatus(sessionId, { 
+        meetingLink,
+        status: 'confirmed',
+        updatedAt: new Date()
+      });
+      
+      if (result.success) {
+        setMeetingLink('');
+        fetchAdminData();
+        alert('Meeting link assigned and session confirmed!');
+      } else {
+        alert('Failed to assign meeting link');
+      }
+    } catch (error) {
+      console.error('Error assigning meeting link:', error);
+      alert('Failed to assign meeting link');
     } finally {
       setUpdatingAssignment(null);
     }
@@ -349,12 +416,33 @@ function AdminDashboard() {
     }
   };
 
+  // NEW: Session status display
+  const getSessionStatusDisplay = (status) => {
+    switch (status) {
+      case 'confirmed': return { text: 'Confirmed', color: '#10B981', icon: '✅' };
+      case 'completed': return { text: 'Completed', color: '#3B82F6', icon: '🏁' };
+      case 'cancelled': return { text: 'Cancelled', color: '#EF4444', icon: '❌' };
+      case 'in-progress': return { text: 'In Progress', color: '#8B5CF6', icon: '🔄' };
+      default: return { text: 'Requested', color: '#F59E0B', icon: '⏳' };
+    }
+  };
+
   const getUrgencyDisplay = (urgency) => {
     switch (urgency) {
       case '24hours': return { text: '24 Hours', color: '#EF4444', icon: '🚨' };
       case '48hours': return { text: '48 Hours', color: '#F59E0B', icon: '⚡' };
       case '1week': return { text: '1 Week', color: '#10B981', icon: '📅' };
       default: return { text: 'Standard', color: '#6B7280', icon: '📋' };
+    }
+  };
+
+  // NEW: Platform icon getter
+  const getPlatformIcon = (platform) => {
+    switch (platform?.toLowerCase()) {
+      case 'zoom': return '📹';
+      case 'google meet': return '🎥';
+      case 'microsoft teams': return '💼';
+      default: return '💻';
     }
   };
 
@@ -1061,6 +1149,220 @@ function AdminDashboard() {
   </div>
 );
 
+  // NEW: Render CrunchTime Sessions Table
+  const renderCrunchTimeSessionsTable = () => (
+    <div className="crunchtime-sessions-container">
+      <div className="table-header">
+        <h3>⏰ CrunchTime Sessions ({crunchTimeSessions.length})</h3>
+        <div className="table-actions">
+          <button className="btn-export" onClick={() => alert('Export feature coming soon!')}>
+            📥 Export CSV
+          </button>
+          <button className="btn-refresh" onClick={fetchAdminData}>
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+      
+      {crunchTimeSessions.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">⏰</div>
+          <h3>No upcoming sessions</h3>
+          <p>No tutoring sessions have been booked yet</p>
+        </div>
+      ) : (
+        <div className="crunchtime-sessions-grid">
+          {crunchTimeSessions.map((session) => {
+            const statusDisplay = getSessionStatusDisplay(session.status);
+            const platformIcon = getPlatformIcon(session.platform);
+            const sessionDate = session.dateTime ? formatDate(session.dateTime) : 'Date not set';
+            
+            return (
+              <div key={session.id} className="crunchtime-session-card">
+                <div className="session-header">
+                  <div className="student-info">
+                    <div className="student-avatar">
+                      {session.userName?.charAt(0) || 'S'}
+                    </div>
+                    <div>
+                      <h4>{session.userName || 'Student'}</h4>
+                      <p className="student-email">{session.userEmail}</p>
+                      <div className="session-subject">
+                        <strong>{session.subject}</strong>
+                        {session.topic && ` - ${session.topic}`}
+                      </div>
+                    </div>
+                  </div>
+                  <div 
+                    className="status-badge"
+                    style={{ 
+                      backgroundColor: `${statusDisplay.color}20`,
+                      color: statusDisplay.color,
+                      borderColor: statusDisplay.color
+                    }}
+                  >
+                    {statusDisplay.icon} {statusDisplay.text}
+                  </div>
+                </div>
+                
+                <div className="session-body">
+                  <div className="session-details">
+                    <div className="detail-item">
+                      <span className="detail-label">Date & Time:</span>
+                      <span className="detail-value">{sessionDate}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Duration:</span>
+                      <span className="detail-value">{session.duration || 120} min</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Platform:</span>
+                      <span className="detail-value">
+                        {platformIcon} {session.platform || 'Not specified'}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Price:</span>
+                      <span className="detail-value price-value">R{session.price || 299}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Payment:</span>
+                      <span className={`detail-value ${session.paymentStatus === 'paid' ? 'paid' : 'pending'}`}>
+                        {session.paymentStatus === 'paid' ? '✅ Paid' : '⏳ Pending'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {session.notes && (
+                    <div className="session-notes">
+                      <strong>Student Notes:</strong>
+                      <p>{session.notes}</p>
+                    </div>
+                  )}
+                  
+                  {session.adminNotes && (
+                    <div className="admin-notes-section">
+                      <strong>Your Notes:</strong>
+                      <p>{session.adminNotes}</p>
+                    </div>
+                  )}
+                  
+                  {/* Meeting Link Section */}
+                  {session.meetingLink ? (
+                    <div className="meeting-link-section">
+                      <strong>🔗 Meeting Link:</strong>
+                      <a 
+                        href={session.meetingLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="meeting-link-btn"
+                      >
+                        Join Meeting
+                      </a>
+                      <button 
+                        onClick={() => {
+                          setMeetingLink(session.meetingLink || '');
+                          document.getElementById(`edit-link-${session.id}`)?.focus();
+                        }}
+                        className="edit-link-btn"
+                      >
+                        ✏️ Edit
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="no-meeting-link">
+                      <strong>⚠️ No Meeting Link:</strong>
+                      <p>Assign a meeting link to confirm this session</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Admin Actions */}
+                <div className="session-actions">
+                  <div className="action-inputs">
+                    <input
+                      type="text"
+                      placeholder="Add admin notes..."
+                      value={sessionAdminNotes}
+                      onChange={(e) => setSessionAdminNotes(e.target.value)}
+                      className="notes-input"
+                      onFocus={() => {
+                        if (updatingAssignment !== session.id) {
+                          setSessionAdminNotes(session.adminNotes || '');
+                          setMeetingLink(session.meetingLink || '');
+                        }
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Meeting link (Zoom/Google Meet)"
+                      value={meetingLink}
+                      onChange={(e) => setMeetingLink(e.target.value)}
+                      className="link-input"
+                      id={`edit-link-${session.id}`}
+                    />
+                  </div>
+                  
+                  <div className="action-buttons">
+                    {!session.meetingLink && (
+                      <button
+                        className="action-btn assign-link"
+                        onClick={() => handleAssignMeetingLink(session.id)}
+                        disabled={updatingAssignment === session.id || !meetingLink.trim()}
+                      >
+                        {updatingAssignment === session.id ? '🔄' : '🔗'} Assign Meeting Link
+                      </button>
+                    )}
+                    
+                    <button
+                      className="action-btn confirm"
+                      onClick={() => handleUpdateSessionStatus(session.id, { 
+                        status: 'confirmed'
+                      })}
+                      disabled={updatingAssignment === session.id}
+                    >
+                      {updatingAssignment === session.id ? '🔄' : '✅'} Confirm
+                    </button>
+                    
+                    <button
+                      className="action-btn in-progress"
+                      onClick={() => handleUpdateSessionStatus(session.id, { 
+                        status: 'in-progress'
+                      })}
+                      disabled={updatingAssignment === session.id}
+                    >
+                      {updatingAssignment === session.id ? '🔄' : '🔄'} Mark In Progress
+                    </button>
+                    
+                    <button
+                      className="action-btn complete"
+                      onClick={() => handleUpdateSessionStatus(session.id, { 
+                        status: 'completed'
+                      })}
+                      disabled={updatingAssignment === session.id}
+                    >
+                      {updatingAssignment === session.id ? '🔄' : '🏁'} Mark Completed
+                    </button>
+                    
+                    <button
+                      className="action-btn cancel"
+                      onClick={() => handleUpdateSessionStatus(session.id, { 
+                        status: 'cancelled'
+                      })}
+                      disabled={updatingAssignment === session.id}
+                    >
+                      {updatingAssignment === session.id ? '🔄' : '❌'} Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   // Render Overview
   const renderOverview = () => (
     <>
@@ -1215,13 +1517,7 @@ function AdminDashboard() {
               {activeTab === 'users' && renderUsersTable()}
               {activeTab === 'assignments' && renderAssignmentsTable()}
               {activeTab === 'cv' && renderCVRequestsTable()}
-              {activeTab === 'sessions' && (
-                <div className="empty-state">
-                  <div className="empty-icon">⏰</div>
-                  <h3>CrunchTime Sessions</h3>
-                  <p>This feature will show tutoring session bookings</p>
-                </div>
-              )}
+              {activeTab === 'sessions' && renderCrunchTimeSessionsTable()}
             </>
           )}
         </div>

@@ -105,6 +105,14 @@ function DashboardLayout({ children }) {
                 <span className="nav-icon">💰</span> Finance
               </button>
               
+              {/* ADD CRUNCHTIME HERE */}
+              <button 
+                className={`mobile-nav-item ${isActive('/crunch-time') ? 'active' : ''}`}
+                onClick={() => handleNavigation('/crunch-time')}
+              >
+                <span className="nav-icon">⏰</span> CrunchTime
+              </button>
+              
               {/* ADMIN LINK - Only show if user is admin */}
               {isAdmin && (
                 <button 
@@ -169,6 +177,15 @@ function DashboardLayout({ children }) {
               <span className="sidebar-text">Finance</span>
             </button>
             
+            {/* ADD CRUNCHTIME HERE */}
+            <button 
+              className={`sidebar-item ${isActive('/crunch-time') ? 'active' : ''}`}
+              onClick={() => handleNavigation('/crunch-time')}
+            >
+              <span className="sidebar-icon">⏰</span>
+              <span className="sidebar-text">CrunchTime</span>
+            </button>
+            
             {/* ADMIN LINK - Only show if user is admin */}
             {isAdmin && (
               <button 
@@ -219,6 +236,16 @@ function DashboardLayout({ children }) {
               <span className="bottom-nav-icon">📚</span>
               <span className="bottom-nav-label">Learn</span>
             </button>
+            
+            {/* ADD CRUNCHTIME HERE */}
+            <button 
+              className={`bottom-nav-item ${isActive('/crunch-time') ? 'active' : ''}`}
+              onClick={() => handleNavigation('/crunch-time')}
+            >
+              <span className="bottom-nav-icon">⏰</span>
+              <span className="bottom-nav-label">Tutoring</span>
+            </button>
+            
             <button 
               className={`bottom-nav-item ${isActive('/cv-builder') ? 'active' : ''}`}
               onClick={() => handleNavigation('/cv-builder')}
