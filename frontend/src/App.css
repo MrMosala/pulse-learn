@@ -7828,3 +7828,313 @@ html {
   color: #f59e0b;
   font-weight: 600;
 }
+
+/* ==================== CANCELLATION STYLES ==================== */
+
+/* Cancellation Status in Session Cards */
+.cancellation-status {
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.cancellation-status .status-badge.warning {
+  background-color: #fef3c7;
+  color: #d97706;
+  border-color: #f59e0b;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.penalty-note {
+  font-size: 14px;
+  color: #dc2626;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #fca5a5;
+}
+
+/* Cancellation Button */
+.cancel-btn {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.cancel-btn:hover {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.cancel-btn.secondary {
+  background-color: #fef3c7;
+  color: #d97706;
+  border-color: #fcd34d;
+}
+
+.cancel-btn.secondary:hover {
+  background-color: #fde68a;
+  border-color: #fbbf24;
+}
+
+/* Cancellation Modal */
+.warning-card {
+  background-color: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.warning-card .warning-icon {
+  font-size: 24px;
+  float: left;
+  margin-right: 12px;
+}
+
+.warning-card .warning-content {
+  overflow: hidden;
+}
+
+.warning-card h3 {
+  color: #d97706;
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.warning-card ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.warning-card li {
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.policy-note {
+  font-size: 14px;
+  color: #78350f;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.btn-warning {
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-warning:hover {
+  background-color: #b91c1c;
+}
+
+.btn-warning:disabled {
+  background-color: #fca5a5;
+  cursor: not-allowed;
+}
+
+/* Admin Dashboard Cancellation Styles */
+.cancellation-request-section {
+  background-color: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.request-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.request-date {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.cancellation-status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cancellation-status-badge.pending {
+  background-color: #fef3c7;
+  color: #d97706;
+  border: 1px solid #f59e0b;
+}
+
+.cancellation-status-badge.approved {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.cancellation-status-badge.rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.request-details {
+  background-color: white;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.request-details p {
+  margin: 6px 0;
+  color: #475569;
+}
+
+.cancellation-actions {
+  background-color: white;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.action-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .action-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 140px;
+}
+
+.action-btn.approve {
+  background-color: #10b981;
+  color: white;
+}
+
+.action-btn.approve:hover {
+  background-color: #059669;
+}
+
+.action-btn.reject {
+  background-color: #ef4444;
+  color: white;
+}
+
+.action-btn.reject:hover {
+  background-color: #dc2626;
+}
+
+.action-btn.full-refund {
+  background-color: #8b5cf6;
+  color: white;
+}
+
+.action-btn.full-refund:hover {
+  background-color: #7c3aed;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancellation-decision {
+  background-color: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.cancellation-decision p {
+  margin: 4px 0;
+  color: #0369a1;
+}
+
+.decision-date {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+/* Meeting Link Validation Styles */
+.validation-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.validation-feedback.valid {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.validation-feedback.invalid {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.validation-icon {
+  font-size: 16px;
+}
+
+/* Form Hint */
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  font-style: italic;
+}

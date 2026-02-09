@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
 import { 
   bookCrunchTimeSession,
-  getUserCrunchTimeSessions 
+  getUserCrunchTimeSessions,
+  requestSessionCancellation  // NEW: Add this import
 } from '../services/firebase';
 import '../App.css';
 
@@ -23,6 +24,11 @@ function CrunchTime() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  
+  // Add these new state variables
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [cancellingSession, setCancellingSession] = useState(null);
+  const [cancellationReason, setCancellationReason] = useState('');
   
   const { currentUser, userProfile } = useAuth();
 
@@ -54,6 +60,48 @@ function CrunchTime() {
     
     fetchUserSessions();
   }, [currentUser]);
+
+  // New function: Handle cancellation request
+  const handleRequestCancellation = async (sessionId) => {
+    if (!currentUser) {
+      setMessage('❌ Please login to request cancellation');
+      return;
+    }
+    
+    if (!cancellationReason.trim()) {
+      setMessage('❌ Please provide a reason for cancellation');
+      return;
+    }
+    
+    try {
+      setSubmitting(true);
+      setMessage('⏳ Submitting cancellation request...');
+      
+      const result = await requestSessionCancellation(
+        sessionId, 
+        currentUser.uid, 
+        cancellationReason
+      );
+      
+      if (result.success) {
+        setMessage(`✅ ${result.message || 'Cancellation request submitted! Admin will review your request.'}`);
+        setShowCancellationModal(false);
+        setCancellationReason('');
+        setCancellingSession(null);
+        
+        // Refresh sessions list
+        const sessions = await getUserCrunchTimeSessions(currentUser.uid);
+        setUserSessions(sessions);
+      } else {
+        throw new Error(result.error || 'Failed to submit cancellation request');
+      }
+    } catch (error) {
+      console.error('Error requesting cancellation:', error);
+      setMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleBookingClick = (session) => {
     setSelectedSession(session);
@@ -323,6 +371,7 @@ function CrunchTime() {
                       </div>
                     </div>
                     
+                    {/* Meeting Link */}
                     {session.meetingLink && (
                       <div className="meeting-link">
                         <a 
@@ -334,6 +383,40 @@ function CrunchTime() {
                           🔗 Join Meeting
                         </a>
                       </div>
+                    )}
+
+                    {/* Cancellation Status */}
+                    {session.cancellationRequested && (
+                      <div className="cancellation-status">
+                        <div className="status-badge warning">
+                          ⚠️ Cancellation Requested
+                        </div>
+                        <p><strong>Status:</strong> {session.cancellationStatus || 'Pending admin review'}</p>
+                        {session.cancellationReason && (
+                          <p><strong>Reason:</strong> {session.cancellationReason}</p>
+                        )}
+                        {session.cancellationPenaltyCalculated && (
+                          <p className="penalty-note">
+                            <strong>Calculated Penalty:</strong> R{session.cancellationPenaltyCalculated}
+                            {session.cancellationRefundCalculated && (
+                              <span> • <strong>Refund:</strong> R{session.cancellationRefundCalculated}</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Cancellation Button - Only show if session is confirmed and no cancellation requested */}
+                    {session.status === 'confirmed' && !session.cancellationRequested && (
+                      <button 
+                        className="cancel-btn secondary"
+                        onClick={() => {
+                          setCancellingSession(session.id);
+                          setShowCancellationModal(true);
+                        }}
+                      >
+                        🚫 Request Cancellation
+                      </button>
                     )}
                     
                     {session.adminNotes && (
@@ -537,6 +620,91 @@ function CrunchTime() {
                 <p>📞 Need help? WhatsApp: +27 12 345 6789</p>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Cancellation Request Modal */}
+      {showCancellationModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>🚫 Request Session Cancellation</h2>
+              <button 
+                className="close-modal"
+                onClick={() => {
+                  setShowCancellationModal(false);
+                  setCancellationReason('');
+                  setCancellingSession(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="warning-card">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-content">
+                  <h3>Cancellation Policy</h3>
+                  <ul>
+                    <li>Cancellations within 24 hours: 50% penalty</li>
+                    <li>Cancellations within 48 hours: 25% penalty</li>
+                    <li>Cancellations more than 48 hours: 10% penalty</li>
+                    <li>Cancellations more than 7 days: No penalty (full refund)</li>
+                    <li>Admin approval required for all cancellations</li>
+                  </ul>
+                  <p className="policy-note">
+                    Penalties are calculated automatically based on time remaining.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label>Reason for Cancellation *</label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Please explain why you need to cancel this session..."
+                  rows="4"
+                  className="form-textarea"
+                  required
+                />
+                <small className="form-hint">
+                  Your reason will be reviewed by admin. Be specific to help with the review process.
+                </small>
+              </div>
+            </div>
+            
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => {
+                  setShowCancellationModal(false);
+                  setCancellationReason('');
+                  setCancellingSession(null);
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-warning"
+                onClick={() => handleRequestCancellation(cancellingSession)}
+                disabled={submitting || !cancellationReason.trim()}
+              >
+                {submitting ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    SUBMITTING...
+                  </>
+                ) : (
+                  '🚫 Submit Cancellation Request'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

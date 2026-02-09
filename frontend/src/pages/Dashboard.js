@@ -12,7 +12,7 @@ function Dashboard() {
       {/* Welcome Banner */}
       <div className="welcome-card">
         <h1 className="welcome-title">
-          WELCOME BACK, <span className="highlight-name">{userProfile?.displayName?.toUpperCase() || "MOSALA SERAI"}</span>! 🎉
+          WELCOME BACK, <span className="highlight-name">{userProfile?.displayName?.toUpperCase() || "STUDENT"}</span>! 🎉
         </h1>
         
         <div className="student-info-cards">
@@ -46,7 +46,7 @@ function Dashboard() {
         <div className="xp-progress-container">
           <div 
             className="xp-progress-bar"
-            style={{ width: `${((userProfile?.xp || 0) / 3000) * 100}%` }}
+            style={{ width: `${Math.min(((userProfile?.xp || 0) / 3000) * 100, 100)}%` }}
           ></div>
         </div>
       </div>
@@ -99,7 +99,7 @@ function Dashboard() {
         </button>
       </div>
 
-      {/* Stats Grid (Desktop only) */}
+      {/* Stats Grid */}
       <div className="section-header">
         <h2>Your Progress</h2>
       </div>

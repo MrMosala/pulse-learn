@@ -8,11 +8,13 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import ProfessionalDashboard from './pages/ProfessionalDashboard';
+import LearnerDashboard from './pages/LearnerDashboard';
 import Courses from './pages/Courses';
 import Assignments from './pages/Assignments';
 import CVBuilder from './pages/CVBuilder';
 import Finance from './pages/Finance';
-import CrunchTime from './pages/CrunchTime'; // ADDED IMPORT
+import CrunchTime from './pages/CrunchTime';
 import Subscribe from './pages/Subscribe';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
@@ -45,6 +47,21 @@ function AdminRoute({ children }) {
   return children;
 }
 
+// User Type Redirect Component - ADD THIS NEW COMPONENT
+function UserTypeRedirect() {
+  const { userProfile } = useAuth();
+  
+  // Redirect based on userType
+  if (userProfile?.userType === 'professional') {
+    return <Navigate to="/professional-dashboard" />;
+  } else if (userProfile?.userType === 'learner') {
+    return <Navigate to="/learner-dashboard" />;
+  } else {
+    // Default to student dashboard
+    return <Navigate to="/dashboard" />;
+  }
+}
+
 // Component to conditionally show Navbar
 function AppContent() {
   const location = useLocation();
@@ -52,11 +69,13 @@ function AppContent() {
   // List of routes where navbar should be HIDDEN (protected pages with DashboardLayout)
   const hideNavbarRoutes = [
     '/dashboard',
+    '/professional-dashboard',
+    '/learner-dashboard',
     '/courses',
     '/assignments',
     '/cv-builder',
     '/finance',
-    '/crunch-time', // ADDED THIS LINE
+    '/crunch-time',
     '/subscribe',
     '/profile',
     '/admin'
@@ -78,7 +97,17 @@ function AppContent() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           
-          {/* Protected Routes (WITHOUT Navbar, use DashboardLayout) */}
+          {/* Main Dashboard Redirect - ADD THIS ROUTE */}
+          <Route 
+            path="/main-dashboard" 
+            element={
+              <ProtectedRoute>
+                <UserTypeRedirect />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* User Type Specific Dashboards (WITHOUT Navbar, use DashboardLayout) */}
           <Route 
             path="/dashboard" 
             element={
@@ -88,6 +117,25 @@ function AppContent() {
             } 
           />
           
+          <Route 
+            path="/professional-dashboard" 
+            element={
+              <ProtectedRoute>
+                <ProfessionalDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/learner-dashboard" 
+            element={
+              <ProtectedRoute>
+                <LearnerDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Shared Features (accessible to all user types) */}
           <Route 
             path="/courses" 
             element={
@@ -124,7 +172,6 @@ function AppContent() {
             } 
           />
           
-          {/* ADDED CRUNCH TIME ROUTE */}
           <Route 
             path="/crunch-time" 
             element={

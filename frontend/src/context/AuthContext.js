@@ -7,10 +7,11 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db, isAdmin, createUserProfile } from '../services/firebase'; // ADD createUserProfile import
+import { auth, db, isAdmin, createUserProfile } from '../services/firebase';
 
 const AuthContext = createContext();
 
@@ -24,7 +25,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   // Sign up with email and password - USING firebase.js function
-  async function signup(email, password, firstName, lastName, studentNumber, university, course) {
+  async function signup(email, password, userData) {
     try {
       // 1. Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -32,20 +33,11 @@ export function AuthProvider({ children }) {
       
       // 2. Update Firebase Auth profile with display name
       await updateProfile(user, {
-        displayName: `${firstName} ${lastName}`
+        displayName: `${userData.firstName} ${userData.lastName}`
       });
       
-      // 3. Create user profile in Firestore USING firebase.js function
-      const result = await createUserProfile(user.uid, {
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        studentNumber: studentNumber,
-        university: university,
-        course: course,
-        phoneNumber: '', // Will be updated later
-        registrationSource: 'website'
-      });
+      // 3. Create user profile in Firestore with ALL user data
+      const result = await createUserProfile(user.uid, userData);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to create user profile');
@@ -115,18 +107,77 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   }
 
-  // Fetch user profile from Firestore
+  // ADD THIS FUNCTION: Password Reset
+  async function resetPassword(email) {
+    try {
+      await sendPasswordResetEmail(auth, email, {
+        // Optional: Customize the email
+        url: window.location.origin + '/login', // Redirect to login after reset
+        handleCodeInApp: true // Recommended for best user experience
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw error; // Let Login.js handle the specific error
+    }
+  }
+
+  // Fetch user profile from Firestore - UPDATED VERSION
   async function fetchUserProfile(uid) {
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
         const profileData = userDoc.data();
-        setUserProfile(profileData);
+        
+        // Ensure all fields are present with defaults
+        const completeProfile = {
+          // Basic info (with defaults)
+          uid: uid,
+          email: profileData.email || '',
+          firstName: profileData.firstName || '',
+          lastName: profileData.lastName || '',
+          displayName: profileData.displayName || `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim(),
+          
+          // User type information (CRITICAL FIX)
+          userType: profileData.userType || 'student', // This was missing!
+          category: profileData.category || 'general',
+          role: profileData.role || 'student',
+          
+          // Student-specific fields
+          studentNumber: profileData.studentNumber || '',
+          university: profileData.university || '',
+          course: profileData.course || '',
+          level: profileData.level || 1,
+          xp: profileData.xp || 0,
+          
+          // Professional fields
+          profession: profileData.profession || '',
+          
+          // Contact info
+          phoneNumber: profileData.phoneNumber || '',
+          
+          // System fields
+          isActive: profileData.isActive !== undefined ? profileData.isActive : true,
+          isEducational: profileData.isEducational || false,
+          isProfessional: profileData.isProfessional || false,
+          profileComplete: profileData.profileComplete || false,
+          registrationSource: profileData.registrationSource || 'website',
+          subscriptionStatus: profileData.subscriptionStatus || 'active',
+          subscriptionExpiry: profileData.subscriptionExpiry || null,
+          totalUploads: profileData.totalUploads || 0,
+          totalRequests: profileData.totalRequests || 0,
+          totalSessions: profileData.totalSessions || 0,
+          createdAt: profileData.createdAt,
+          updatedAt: profileData.updatedAt,
+          lastLogin: profileData.lastLogin
+        };
+        
+        setUserProfile(completeProfile);
         
         // Also update current user's display name if different
-        if (auth.currentUser && profileData.displayName !== auth.currentUser.displayName) {
+        if (auth.currentUser && completeProfile.displayName !== auth.currentUser.displayName) {
           await updateProfile(auth.currentUser, {
-            displayName: profileData.displayName
+            displayName: completeProfile.displayName
           });
         }
       } else {
@@ -177,6 +228,7 @@ export function AuthProvider({ children }) {
     login,
     loginWithGoogle,
     logout,
+    resetPassword,
     updateUserProfile,
     isAdmin: userProfile?.role === 'admin' || isAdmin(userProfile?.email)
   };

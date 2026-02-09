@@ -1,1 +1,201 @@
-/* Dashboard styles */
+/* Dashboard styles *//* Professional Dashboard Styles */
+.professional-welcome {
+  background: linear-gradient(135deg, #10B981 0%, #047857 100%);
+}
+
+.professional-info-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.professional-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.career-card {
+  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+}
+
+.career-progress {
+  background: linear-gradient(90deg, #FBBF24 0%, #F59E0B 100%);
+}
+
+.professional-action {
+  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  color: white;
+}
+
+.professional-action:hover {
+  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+  transform: translateY(-3px);
+}
+
+.professional-stat {
+  background: linear-gradient(135deg, #EC4899 0%, #BE185D 100%);
+  color: white;
+}
+
+.activities-list {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-icon {
+  font-size: 24px;
+  margin-right: 15px;
+  background: #f3f4f6;
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-content {
+  flex: 1;
+}
+
+.activity-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 5px;
+}
+
+.activity-time {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Learner Dashboard Styles */
+.learner-welcome {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+}
+
+.learner-info-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.learner-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.learning-card {
+  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+}
+
+.learning-progress {
+  background: linear-gradient(90deg, #34D399 0%, #10B981 100%);
+}
+
+.learner-action {
+  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+  color: white;
+}
+
+.learner-action:hover {
+  background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+  transform: translateY(-3px);
+}
+
+.learner-stat {
+  background: linear-gradient(135deg, #EC4899 0%, #BE185D 100%);
+  color: white;
+}
+
+.recommended-courses {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.course-recommendation {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.course-recommendation:last-child {
+  border-bottom: none;
+}
+
+.course-icon {
+  font-size: 24px;
+  margin-right: 15px;
+  background: #f3f4f6;
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.course-content {
+  flex: 1;
+}
+
+.course-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 5px;
+}
+
+.course-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.course-progress {
+  background: #e5e7eb;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.course-progress .progress-bar {
+  background: #10B981;
+  height: 100%;
+}
+
+.continue-btn {
+  background: #3B82F6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.continue-btn:hover {
+  background: #2563EB;
+}

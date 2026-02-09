@@ -15,8 +15,9 @@ import {
   updateCVRequestStatus,
   uploadTailoredCV,
   deleteCVRequest,
-  updateSessionStatus  // NEW: Added this import
+  updateSessionStatus
 } from '../services/firebase';
+import { validateMeetingLink } from '../utils/meetingValidator';
 import '../App.css';
 
 function AdminDashboard() {
@@ -49,6 +50,11 @@ function AdminDashboard() {
   const [crunchTimeSessions, setCrunchTimeSessions] = useState([]);
   const [sessionAdminNotes, setSessionAdminNotes] = useState('');
   const [meetingLink, setMeetingLink] = useState('');
+  
+  // Add these after your existing state declarations:
+  const [cancellationPenalty, setCancellationPenalty] = useState('');
+  const [cancellationNotes, setCancellationNotes] = useState('');
+  const [selectedCancellationSession, setSelectedCancellationSession] = useState(null);
   
   const { userProfile } = useAuth();
 
@@ -172,17 +178,44 @@ function AdminDashboard() {
     }
   };
 
-  // NEW: Assign meeting link handler
+  // NEW: Assign meeting link handler WITH VALIDATION
   const handleAssignMeetingLink = async (sessionId) => {
     if (!meetingLink.trim()) {
       alert('Please enter a meeting link');
       return;
     }
     
+    // Validate the meeting link using our new validator
+    const validation = validateMeetingLink(meetingLink);
+    
+    if (!validation.isValid) {
+      // Show specific error message from validator
+      alert(`❌ Invalid meeting link:\n${validation.message}`);
+      return;
+    }
+    
+    // If validation passed but has a warning, show confirmation
+    if (validation.warning) {
+      const shouldContinue = window.confirm(
+        `⚠️ ${validation.warning}\n\nPlatform detected: ${validation.platform}\n\nDo you want to assign this link anyway?`
+      );
+      if (!shouldContinue) return;
+    }
+    
+    // Use formatted URL if validator provided one (e.g., for meet codes)
+    const linkToAssign = validation.formattedUrl || meetingLink;
+    
+    // Confirm with admin
+    const confirmAssign = window.confirm(
+      `Assign ${validation.platform} meeting link?\n\n${linkToAssign}\n\nThis will also confirm the session.`
+    );
+    
+    if (!confirmAssign) return;
+    
     try {
       setUpdatingAssignment(sessionId);
       const result = await updateSessionStatus(sessionId, { 
-        meetingLink,
+        meetingLink: linkToAssign,
         status: 'confirmed',
         updatedAt: new Date()
       });
@@ -190,15 +223,58 @@ function AdminDashboard() {
       if (result.success) {
         setMeetingLink('');
         fetchAdminData();
-        alert('Meeting link assigned and session confirmed!');
+        alert(`✅ ${validation.platform} link assigned and session confirmed!`);
       } else {
         alert('Failed to assign meeting link');
       }
     } catch (error) {
       console.error('Error assigning meeting link:', error);
-      alert('Failed to assign meeting link');
+      alert('Failed to assign meeting link: ' + error.message);
     } finally {
       setUpdatingAssignment(null);
+    }
+  };
+
+  // NEW: Handle cancellation approval/rejection
+  const handleProcessCancellation = async (sessionId, action) => {
+    if (action === 'approved' && !cancellationPenalty) {
+      alert('Please enter penalty amount for approved cancellation');
+      return;
+    }
+    
+    try {
+      setUpdatingAssignment(sessionId);
+      setSelectedCancellationSession(sessionId);
+      
+      // Import the cancellation handler
+      const { handleCancellationRequest } = await import('../services/firebase');
+      
+      const result = await handleCancellationRequest(
+        sessionId,
+        action,
+        action === 'approved' ? Number(cancellationPenalty) : 0,
+        cancellationNotes
+      );
+      
+      if (result.success) {
+        alert(`✅ Cancellation ${action} successfully!`);
+        
+        // Reset form
+        setCancellationPenalty('');
+        setCancellationNotes('');
+        setSelectedCancellationSession(null);
+        
+        // Refresh data
+        fetchAdminData();
+      } else {
+        throw new Error(result.error || `Failed to ${action} cancellation`);
+      }
+    } catch (error) {
+      console.error('Error processing cancellation:', error);
+      alert(`❌ Error: ${error.message}`);
+    } finally {
+      setUpdatingAssignment(null);
+      setSelectedCancellationSession(null);
     }
   };
 
@@ -1275,6 +1351,117 @@ function AdminDashboard() {
                       <p>Assign a meeting link to confirm this session</p>
                     </div>
                   )}
+                  
+                  {/* Cancellation Request Section - NEW */}
+                  {session.cancellationRequested && (
+                    <div className="cancellation-request-section">
+                      <div className="request-header">
+                        <div className="request-title">
+                          <strong>🚫 Cancellation Request</strong>
+                          <span className="request-date">
+                            Requested: {formatDate(session.cancellationRequestedAt)}
+                          </span>
+                        </div>
+                        <div className={`cancellation-status-badge ${session.cancellationStatus || 'pending'}`}>
+                          {session.cancellationStatus === 'approved' ? '✅ Approved' : 
+                           session.cancellationStatus === 'rejected' ? '❌ Rejected' : '⏳ Pending'}
+                        </div>
+                      </div>
+                      
+                      <div className="request-details">
+                        <p><strong>Reason:</strong> {session.cancellationReason}</p>
+                        <p><strong>Session Price:</strong> R{session.price || 299}</p>
+                        <p><strong>Calculated Penalty:</strong> R{session.cancellationPenaltyCalculated || 0}</p>
+                        <p><strong>Calculated Refund:</strong> R{session.cancellationRefundCalculated || 0}</p>
+                      </div>
+                      
+                      {/* Only show actions if cancellation is pending */}
+                      {(!session.cancellationStatus || session.cancellationStatus === 'pending') && (
+                        <div className="cancellation-actions">
+                          <div className="action-inputs">
+                            <div className="form-group">
+                              <label>Adjust Penalty (R)</label>
+                              <input
+                                type="number"
+                                value={selectedCancellationSession === session.id ? cancellationPenalty : (session.cancellationPenaltyCalculated || '')}
+                                onChange={(e) => {
+                                  setCancellationPenalty(e.target.value);
+                                  setSelectedCancellationSession(session.id);
+                                }}
+                                placeholder="e.g., 50"
+                                className="form-input"
+                                min="0"
+                                max={session.price || 299}
+                              />
+                              <small>Max: R{session.price || 299} (Session price)</small>
+                            </div>
+                            
+                            <div className="form-group">
+                              <label>Admin Notes</label>
+                              <textarea
+                                value={selectedCancellationSession === session.id ? cancellationNotes : ''}
+                                onChange={(e) => {
+                                  setCancellationNotes(e.target.value);
+                                  setSelectedCancellationSession(session.id);
+                                }}
+                                placeholder="Explain your decision to the student..."
+                                rows="3"
+                                className="form-textarea"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="action-buttons">
+                            <button
+                              className="action-btn approve"
+                              onClick={() => handleProcessCancellation(session.id, 'approved')}
+                              disabled={updatingAssignment === session.id || (cancellationPenalty && Number(cancellationPenalty) > (session.price || 299))}
+                            >
+                              {updatingAssignment === session.id ? '🔄' : '✅'} Approve with Penalty
+                            </button>
+                            
+                            <button
+                              className="action-btn reject"
+                              onClick={() => handleProcessCancellation(session.id, 'rejected')}
+                              disabled={updatingAssignment === session.id}
+                            >
+                              {updatingAssignment === session.id ? '🔄' : '❌'} Reject Request
+                            </button>
+                            
+                            <button
+                              className="action-btn full-refund"
+                              onClick={() => {
+                                setCancellationPenalty('0');
+                                handleProcessCancellation(session.id, 'approved');
+                              }}
+                              disabled={updatingAssignment === session.id}
+                            >
+                              {updatingAssignment === session.id ? '🔄' : '💝'} Full Refund (Special Case)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Show final decision if already processed */}
+                      {session.cancellationStatus && session.cancellationStatus !== 'pending' && (
+                        <div className="cancellation-decision">
+                          <p><strong>Decision:</strong> {session.cancellationStatus.toUpperCase()}</p>
+                          {session.cancellationPenaltyFinal !== undefined && (
+                            <p><strong>Final Penalty:</strong> R{session.cancellationPenaltyFinal}</p>
+                          )}
+                          {session.cancellationRefundFinal !== undefined && (
+                            <p><strong>Final Refund:</strong> R{session.cancellationRefundFinal}</p>
+                          )}
+                          {session.cancellationAdminNotes && (
+                            <p><strong>Admin Notes:</strong> {session.cancellationAdminNotes}</p>
+                          )}
+                          <p className="decision-date">
+                            Processed: {formatDate(session.cancellationProcessedAt)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Admin Actions */}
@@ -1301,6 +1488,26 @@ function AdminDashboard() {
                       className="link-input"
                       id={`edit-link-${session.id}`}
                     />
+                    
+                    {/* NEW: Add validation feedback UI */}
+                    {meetingLink && (
+                      (() => {
+                        const validation = validateMeetingLink(meetingLink);
+                        return (
+                          <div className={`validation-feedback ${validation.isValid ? 'valid' : 'invalid'}`}>
+                            <span className="validation-icon">
+                              {validation.isValid ? '✅' : '⚠️'}
+                            </span>
+                            <span className="validation-text">
+                              {validation.isValid 
+                                ? `Valid ${validation.platform} link` 
+                                : validation.message
+                              }
+                            </span>
+                          </div>
+                        );
+                      })()
+                    )}
                   </div>
                   
                   <div className="action-buttons">

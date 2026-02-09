@@ -59,13 +59,18 @@ export const isAdmin = (email) => {
 };
 
 // ==================== USER MANAGEMENT ====================
+// Replace lines 76-92 with this corrected version:
 export const createUserProfile = async (userId, userData) => {
   try {
     const userRef = doc(db, DB_COLLECTIONS.USERS, userId);
-    await setDoc(userRef, {
-      ...userData,
+    
+    // Prepare user document with proper defaults
+    const userDoc = {
+      ...userData,  // Keep all data from Signup.js (including userType)
       uid: userId,
-      role: 'student',
+      // Set role based on userType, fallback to 'student' for backward compatibility
+      role: userData.userType === 'professional' ? 'professional' : 
+            userData.userType === 'learner' ? 'learner' : 'student',
       isActive: true,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -75,19 +80,23 @@ export const createUserProfile = async (userId, userData) => {
       totalUploads: 0,
       totalRequests: 0,
       totalSessions: 0
-    });
+    };
+    
+    await setDoc(userRef, userDoc);
     
     // Log user creation activity
     await logUserActivity(userId, 'USER_SIGNUP', {
       email: userData.email,
-      name: `${userData.firstName} ${userData.lastName}`
+      name: `${userData.firstName} ${userData.lastName}`,
+      userType: userData.userType || 'student'
     });
     
     // Create admin notification for new user
     await createAdminNotification('NEW_USER', {
       userId,
       userName: `${userData.firstName} ${userData.lastName}`,
-      userEmail: userData.email
+      userEmail: userData.email,
+      userType: userData.userType || 'student'
     });
     
     return { success: true, userId };
@@ -499,6 +508,237 @@ export const assignMeetingLink = async (sessionId, meetingLink) => {
     return { success: true };
   } catch (error) {
     console.error('Error assigning meeting link:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ==================== SESSION CANCELLATION FUNCTIONS ====================
+
+/**
+ * Request cancellation for a CrunchTime session (Student function)
+ * @param {string} sessionId - The session ID
+ * @param {string} userId - The user's ID (to verify ownership)
+ * @param {string} reason - Reason for cancellation
+ * @returns {Object} Success status
+ */
+export const requestSessionCancellation = async (sessionId, userId, reason) => {
+  try {
+    const sessionRef = doc(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS, sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      throw new Error('Session not found');
+    }
+    
+    const sessionData = sessionDoc.data();
+    
+    // Verify the user owns this session
+    if (sessionData.userId !== userId) {
+      throw new Error('You can only request cancellation for your own sessions');
+    }
+    
+    // Check if session can be cancelled (only confirmed or requested status)
+    if (!['requested', 'confirmed'].includes(sessionData.status)) {
+      throw new Error(`Cannot cancel session with status: ${sessionData.status}`);
+    }
+    
+    // Check if cancellation is already requested
+    if (sessionData.cancellationRequested) {
+      throw new Error('Cancellation already requested for this session');
+    }
+    
+    // Calculate penalty based on time remaining
+    const sessionDateTime = sessionData.dateTime?.toDate ? sessionData.dateTime.toDate() : new Date(sessionData.dateTime);
+    const now = new Date();
+    const hoursUntilSession = (sessionDateTime - now) / (1000 * 60 * 60);
+    
+    let penaltyPercentage = 0;
+    if (hoursUntilSession < 24) {
+      penaltyPercentage = 50; // 50% penalty within 24 hours
+    } else if (hoursUntilSession < 48) {
+      penaltyPercentage = 25; // 25% penalty within 48 hours
+    } else if (hoursUntilSession < 168) { // 7 days
+      penaltyPercentage = 10; // 10% penalty within 7 days
+    }
+    
+    const penaltyAmount = Math.round((sessionData.price || 0) * (penaltyPercentage / 100));
+    const refundAmount = (sessionData.price || 0) - penaltyAmount;
+    
+    // Update session with cancellation request
+    await updateDoc(sessionRef, {
+      cancellationRequested: true,
+      cancellationReason: reason,
+      cancellationRequestedAt: serverTimestamp(),
+      cancellationStatus: 'pending', // pending, approved, rejected
+      cancellationPenaltyCalculated: penaltyAmount,
+      cancellationRefundCalculated: refundAmount,
+      updatedAt: serverTimestamp()
+    });
+    
+    // Log activity
+    await logUserActivity(userId, 'CANCELLATION_REQUESTED', {
+      sessionId,
+      reason,
+      penaltyPercentage,
+      penaltyAmount,
+      refundAmount
+    });
+    
+    // Create admin notification
+    await createAdminNotification('CANCELLATION_REQUESTED', {
+      sessionId,
+      userId,
+      userName: sessionData.userName,
+      userEmail: sessionData.userEmail,
+      subject: sessionData.subject,
+      reason,
+      penaltyAmount,
+      refundAmount,
+      sessionDateTime: sessionData.dateTime
+    });
+    
+    return { 
+      success: true, 
+      penaltyAmount,
+      refundAmount,
+      message: `Cancellation request submitted. Penalty: R${penaltyAmount}, Refund: R${refundAmount}`
+    };
+  } catch (error) {
+    console.error('Error requesting session cancellation:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Handle cancellation request (Admin function)
+ * @param {string} sessionId - The session ID
+ * @param {string} action - 'approved' or 'rejected'
+ * @param {number} finalPenalty - Final penalty amount (admin can adjust)
+ * @param {string} adminNotes - Notes from admin
+ * @returns {Object} Success status
+ */
+export const handleCancellationRequest = async (sessionId, action, finalPenalty = null, adminNotes = '') => {
+  try {
+    const sessionRef = doc(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS, sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      throw new Error('Session not found');
+    }
+    
+    const sessionData = sessionDoc.data();
+    
+    // Check if cancellation was requested
+    if (!sessionData.cancellationRequested) {
+      throw new Error('No cancellation request found for this session');
+    }
+    
+    // Check if already processed
+    if (sessionData.cancellationStatus && sessionData.cancellationStatus !== 'pending') {
+      throw new Error(`Cancellation already ${sessionData.cancellationStatus}`);
+    }
+    
+    const updates = {
+      cancellationStatus: action,
+      cancellationProcessedAt: serverTimestamp(),
+      cancellationAdminNotes: adminNotes,
+      updatedAt: serverTimestamp()
+    };
+    
+    if (action === 'approved') {
+      // Use admin's penalty or calculated penalty
+      const penaltyAmount = finalPenalty !== null ? finalPenalty : sessionData.cancellationPenaltyCalculated || 0;
+      const refundAmount = (sessionData.price || 0) - penaltyAmount;
+      
+      updates.status = 'cancelled';
+      updates.cancellationPenaltyFinal = penaltyAmount;
+      updates.cancellationRefundFinal = refundAmount;
+      updates.paymentStatus = refundAmount > 0 ? 'refund_pending' : 'cancelled_no_refund';
+      
+      // Create notification for user
+      await createAdminNotification('CANCELLATION_APPROVED', {
+        sessionId,
+        userId: sessionData.userId,
+        userName: sessionData.userName,
+        penaltyAmount,
+        refundAmount,
+        adminNotes
+      });
+      
+    } else if (action === 'rejected') {
+      // Session continues as before
+      updates.cancellationRequested = false; // Reset the request
+      updates.cancellationReason = null;
+      
+      // Create notification for user
+      await createAdminNotification('CANCELLATION_REJECTED', {
+        sessionId,
+        userId: sessionData.userId,
+        userName: sessionData.userName,
+        adminNotes
+      });
+    }
+    
+    await updateDoc(sessionRef, updates);
+    
+    // Log activity
+    await logUserActivity(sessionData.userId, `CANCELLATION_${action.toUpperCase()}`, {
+      sessionId,
+      penaltyAmount: updates.cancellationPenaltyFinal,
+      refundAmount: updates.cancellationRefundFinal,
+      adminNotes
+    });
+    
+    return { 
+      success: true, 
+      message: `Cancellation ${action} successfully`,
+      ...(action === 'approved' && {
+        penaltyAmount: updates.cancellationPenaltyFinal,
+        refundAmount: updates.cancellationRefundFinal
+      })
+    };
+  } catch (error) {
+    console.error('Error handling cancellation request:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Delete session (Admin only function)
+ * @param {string} sessionId - The session ID
+ * @returns {Object} Success status
+ */
+export const deleteSessionAdminOnly = async (sessionId) => {
+  try {
+    const sessionRef = doc(db, DB_COLLECTIONS.CRUNCHTIME_SESSIONS, sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    
+    if (!sessionDoc.exists()) {
+      throw new Error('Session not found');
+    }
+    
+    const sessionData = sessionDoc.data();
+    
+    // Log activity before deletion
+    await logUserActivity(sessionData.userId, 'SESSION_DELETED_BY_ADMIN', {
+      sessionId,
+      subject: sessionData.subject,
+      status: sessionData.status
+    });
+    
+    // Create admin notification
+    await createAdminNotification('SESSION_DELETED', {
+      sessionId,
+      userId: sessionData.userId,
+      userName: sessionData.userName,
+      subject: sessionData.subject
+    });
+    
+    await deleteDoc(sessionRef);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting session:', error);
     return { success: false, error: error.message };
   }
 };
