@@ -55,6 +55,10 @@ function AdminDashboard() {
   const [cancellationPenalty, setCancellationPenalty] = useState('');
   const [cancellationNotes, setCancellationNotes] = useState('');
   const [selectedCancellationSession, setSelectedCancellationSession] = useState(null);
+
+  // Add after your existing state declarations
+  const [userTypeFilter, setUserTypeFilter] = useState('all'); // 'all', 'student', 'professional', 'learner'
+  const [searchQuery, setSearchQuery] = useState('');
   
   const { userProfile } = useAuth();
 
@@ -606,6 +610,59 @@ function AdminDashboard() {
     return 'U';
   };
 
+  // Helper function to get user type badge
+  const getUserTypeBadge = (userType) => {
+    switch (userType?.toLowerCase()) {
+      case 'student':
+        return { icon: '🎓', label: 'Student', color: '#667eea', bg: '#e0e7ff' };
+      case 'professional':
+        return { icon: '💼', label: 'Professional', color: '#1e3a8a', bg: '#dbeafe' };
+      case 'learner':
+        return { icon: '📚', label: 'Learner', color: '#10b981', bg: '#d1fae5' };
+      default:
+        return { icon: '👤', label: 'User', color: '#6b7280', bg: '#f3f4f6' };
+    }
+  };
+
+  // Helper function to get user stats by type
+  const getUserStatsByType = () => {
+    const stats = {
+      students: users.filter(u => u.userType === 'student').length,
+      professionals: users.filter(u => u.userType === 'professional').length,
+      learners: users.filter(u => u.userType === 'learner').length,
+      unknown: users.filter(u => !u.userType).length
+    };
+    return stats;
+  };
+
+  // Helper function to filter users
+  const getFilteredUsers = () => {
+    let filtered = users;
+    
+    // Filter by type
+    if (userTypeFilter !== 'all') {
+      filtered = filtered.filter(u => {
+        if (userTypeFilter === 'unknown') {
+          return !u.userType;
+        }
+        return u.userType === userTypeFilter;
+      });
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(u => 
+        getUserDisplayName(u).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.studentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.institution?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.company?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  };
+
   // Render Assignments Table
   const renderAssignmentsTable = () => (
     <div className="assignments-table-container">
@@ -843,73 +900,241 @@ function AdminDashboard() {
     </div>
   );
 
-  // Render Users Table
-  const renderUsersTable = () => (
-    <div className="users-table-container">
-      <div className="table-header">
-        <h3>👥 Registered Users ({users.length})</h3>
-        <div className="table-actions">
-          <button className="btn-export">📥 Export CSV</button>
-          <button className="btn-refresh" onClick={fetchAdminData}>🔄 Refresh</button>
+  // Enhanced Users Table with Type Display
+  const renderUsersTable = () => {
+    const filteredUsers = getFilteredUsers();
+    const typeStats = getUserStatsByType();
+    
+    return (
+      <div className="users-table-container">
+        {/* Stats Cards by Type */}
+        <div className="user-type-stats">
+          <div 
+            className={`type-stat-card ${userTypeFilter === 'student' ? 'active' : ''}`}
+            onClick={() => setUserTypeFilter(userTypeFilter === 'student' ? 'all' : 'student')}
+            style={{ borderColor: '#667eea' }}
+          >
+            <div className="stat-icon" style={{ background: '#e0e7ff', color: '#667eea' }}>🎓</div>
+            <div className="stat-info">
+              <div className="stat-value">{typeStats.students}</div>
+              <div className="stat-label">Students</div>
+            </div>
+          </div>
+          
+          <div 
+            className={`type-stat-card ${userTypeFilter === 'professional' ? 'active' : ''}`}
+            onClick={() => setUserTypeFilter(userTypeFilter === 'professional' ? 'all' : 'professional')}
+            style={{ borderColor: '#1e3a8a' }}
+          >
+            <div className="stat-icon" style={{ background: '#dbeafe', color: '#1e3a8a' }}>💼</div>
+            <div className="stat-info">
+              <div className="stat-value">{typeStats.professionals}</div>
+              <div className="stat-label">Professionals</div>
+            </div>
+          </div>
+          
+          <div 
+            className={`type-stat-card ${userTypeFilter === 'learner' ? 'active' : ''}`}
+            onClick={() => setUserTypeFilter(userTypeFilter === 'learner' ? 'all' : 'learner')}
+            style={{ borderColor: '#10b981' }}
+          >
+            <div className="stat-icon" style={{ background: '#d1fae5', color: '#10b981' }}>📚</div>
+            <div className="stat-info">
+              <div className="stat-value">{typeStats.learners}</div>
+              <div className="stat-label">Learners</div>
+            </div>
+          </div>
+          
+          {typeStats.unknown > 0 && (
+            <div 
+              className={`type-stat-card ${userTypeFilter === 'unknown' ? 'active' : ''}`}
+              onClick={() => setUserTypeFilter(userTypeFilter === 'unknown' ? 'all' : 'unknown')}
+              style={{ borderColor: '#6b7280' }}
+            >
+              <div className="stat-icon" style={{ background: '#f3f4f6', color: '#6b7280' }}>❓</div>
+              <div className="stat-info">
+                <div className="stat-value">{typeStats.unknown}</div>
+                <div className="stat-label">Unknown</div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-      
-      <div className="table-responsive">
-        <table className="users-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Student #</th>
-              <th>University</th>
-              <th>Course</th>
-              <th>Joined</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(user => {
-              const displayName = getUserDisplayName(user);
-              const avatarLetter = getUserAvatarLetter(user);
-              const isActive = user.isActive !== undefined ? user.isActive : true;
-              
-              return (
-                <tr key={user.id}>
-                  <td>
-                    <div className="user-cell">
-                      <div className="user-avatar">
-                        {avatarLetter}
-                      </div>
-                      <div className="user-info">
-                        <strong>{displayName}</strong>
-                        <small>{user.role || 'student'}</small>
-                      </div>
+        
+        {/* Table Header with Search and Actions */}
+        <div className="table-header">
+          <h3>
+            👥 Registered Users ({filteredUsers.length}
+            {userTypeFilter !== 'all' && ` ${userTypeFilter}s`})
+          </h3>
+          <div className="table-actions">
+            <input
+              type="text"
+              placeholder="🔍 Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+              style={{
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #e5e7eb',
+                marginRight: '10px',
+                width: '250px'
+              }}
+            />
+            {userTypeFilter !== 'all' && (
+              <button 
+                className="btn-clear-filter" 
+                onClick={() => setUserTypeFilter('all')}
+                style={{
+                  padding: '8px 16px',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  marginRight: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Clear Filter
+              </button>
+            )}
+            <button className="btn-export">📥 Export CSV</button>
+            <button className="btn-refresh" onClick={fetchAdminData}>🔄 Refresh</button>
+          </div>
+        </div>
+        
+        {/* Users Table */}
+        <div className="table-responsive">
+          <table className="users-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Type</th>
+                <th>Details</th>
+                <th>Joined</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>
+                    <div className="empty-state">
+                      <div className="empty-icon">🔍</div>
+                      <h3>No users found</h3>
+                      <p>Try adjusting your filters or search query</p>
                     </div>
                   </td>
-                  <td>{user.email || 'No email'}</td>
-                  <td>{user.studentNumber || user.studentId || 'N/A'}</td>
-                  <td>{user.university || user.institution || 'N/A'}</td>
-                  <td>{user.course || user.program || 'N/A'}</td>
-                  <td>{user.createdAt ? formatDate(user.createdAt) : 'N/A'}</td>
-                  <td>
-                    <span className={`status-badge ${isActive ? 'active' : 'inactive'}`}>
-                      {isActive ? '✅ Active' : '❌ Inactive'}
-                    </span>
-                  </td>
-                  <td>
-                    <button className="btn-action" title="View Profile">👁️</button>
-                    <button className="btn-action" title="Send Message">💬</button>
-                    <button className="btn-action" title="Edit">✏️</button>
-                  </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : (
+                filteredUsers.map(user => {
+                  const displayName = getUserDisplayName(user);
+                  const avatarLetter = getUserAvatarLetter(user);
+                  const isActive = user.isActive !== undefined ? user.isActive : true;
+                  const typeBadge = getUserTypeBadge(user.userType);
+                  
+                  return (
+                    <tr key={user.id}>
+                      {/* Name Column */}
+                      <td>
+                        <div className="user-cell">
+                          <div className="user-avatar">
+                            {avatarLetter}
+                          </div>
+                          <div className="user-info">
+                            <strong>{displayName}</strong>
+                            <small>{user.role || 'user'}</small>
+                          </div>
+                        </div>
+                      </td>
+                      
+                      {/* Email Column */}
+                      <td>{user.email || 'No email'}</td>
+                      
+                      {/* Type Column - NEW! */}
+                      <td>
+                        <span 
+                          className="user-type-badge"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            background: typeBadge.bg,
+                            color: typeBadge.color,
+                            fontWeight: '600',
+                            fontSize: '13px',
+                            border: `1px solid ${typeBadge.color}40`
+                          }}
+                        >
+                          <span>{typeBadge.icon}</span>
+                          <span>{typeBadge.label}</span>
+                        </span>
+                      </td>
+                      
+                      {/* Details Column - Conditional based on type */}
+                      <td>
+                        {user.userType === 'student' && (
+                          <div className="user-details">
+                            <div><strong>Student #:</strong> {user.studentNumber || 'N/A'}</div>
+                            <div><strong>University:</strong> {user.institution || user.university || 'N/A'}</div>
+                            <div><strong>Program:</strong> {user.course || user.program || 'N/A'}</div>
+                            {user.level && <div><strong>Level:</strong> {user.level}</div>}
+                          </div>
+                        )}
+                        
+                        {user.userType === 'professional' && (
+                          <div className="user-details">
+                            <div><strong>Company:</strong> {user.company || user.institution || 'N/A'}</div>
+                            <div><strong>Position:</strong> {user.position || user.role || 'N/A'}</div>
+                            {user.industry && <div><strong>Industry:</strong> {user.industry}</div>}
+                          </div>
+                        )}
+                        
+                        {user.userType === 'learner' && (
+                          <div className="user-details">
+                            <div><strong>Category:</strong> {user.category || 'General'}</div>
+                            {user.interests && <div><strong>Interests:</strong> {user.interests}</div>}
+                            {user.learningGoals && <div><strong>Goals:</strong> {user.learningGoals}</div>}
+                          </div>
+                        )}
+                        
+                        {!user.userType && (
+                          <div className="user-details">
+                            <div style={{ color: '#6b7280', fontStyle: 'italic' }}>No type information</div>
+                          </div>
+                        )}
+                      </td>
+                      
+                      {/* Joined Column */}
+                      <td>{user.createdAt ? formatDate(user.createdAt) : 'N/A'}</td>
+                      
+                      {/* Status Column */}
+                      <td>
+                        <span className={`status-badge ${isActive ? 'active' : 'inactive'}`}>
+                          {isActive ? '✅ Active' : '❌ Inactive'}
+                        </span>
+                      </td>
+                      
+                      {/* Actions Column */}
+                      <td>
+                        <button className="btn-action" title="View Profile">👁️</button>
+                        <button className="btn-action" title="Send Message">💬</button>
+                        <button className="btn-action" title="Edit">✏️</button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Render CV Requests Table
   const renderCVRequestsTable = () => (
@@ -1229,7 +1454,7 @@ function AdminDashboard() {
   const renderCrunchTimeSessionsTable = () => (
     <div className="crunchtime-sessions-container">
       <div className="table-header">
-        <h3>⏰ CrunchTime Sessions ({crunchTimeSessions.length})</h3>
+        <h3>⏰ CrunchTime Sessions ({crunchTimeSessions.filter(s => s.status !== 'cancelled' && s.status !== 'completed').length})</h3>
         <div className="table-actions">
           <button className="btn-export" onClick={() => alert('Export feature coming soon!')}>
             📥 Export CSV
@@ -1248,7 +1473,9 @@ function AdminDashboard() {
         </div>
       ) : (
         <div className="crunchtime-sessions-grid">
-          {crunchTimeSessions.map((session) => {
+          {crunchTimeSessions
+              .filter(session => session.status !== 'cancelled' && session.status !== 'completed')
+              .map((session) => {
             const statusDisplay = getSessionStatusDisplay(session.status);
             const platformIcon = getPlatformIcon(session.platform);
             const sessionDate = session.dateTime ? formatDate(session.dateTime) : 'Date not set';

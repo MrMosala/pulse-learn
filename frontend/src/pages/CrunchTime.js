@@ -1,22 +1,72 @@
+// frontend/src/pages/CrunchTime.js
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
 import { 
   bookCrunchTimeSession,
   getUserCrunchTimeSessions,
-  requestSessionCancellation  // NEW: Add this import
+  requestSessionCancellation
 } from '../services/firebase';
 import '../App.css';
 
+// Education level tiers
+const SESSION_TIERS = {
+  highschool: {
+    id: 'highschool',
+    name: 'High School',
+    icon: '🏫',
+    price: 249,
+    duration: '2 hours',
+    subjects: [
+      'Mathematics (Grades 8-12)',
+      'Physical Sciences (Physics & Chemistry)',
+      'Life Sciences (Biology)',
+      'English Home / First Additional Language',
+      'And most other subjects'
+    ],
+    tagline: 'Get clear explanations and exam prep for:'
+  },
+  firstyear: {
+    id: 'firstyear',
+    name: 'First-Year University',
+    icon: '🎓',
+    price: 299,
+    duration: '2 hours',
+    subjects: [
+      'Mathematics I / Calculus I',
+      'Introduction to Computer Science',
+      'Physics I',
+      'Statistics I',
+      'Business Statistics'
+    ],
+    tagline: 'Build a strong foundation in:'
+  },
+  advanced: {
+    id: 'advanced',
+    name: 'Advanced University',
+    icon: '⚡',
+    price: 349,
+    duration: '2 hours',
+    subjects: [
+      'Calculus II & III',
+      'Data Structures & Programming',
+      'Advanced Physics',
+      'Econometrics / Finance Maths',
+      'Linear Algebra'
+    ],
+    tagline: 'Tackle complex topics in:'
+  }
+};
+
 function CrunchTime() {
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [selectedSession, setSelectedSession] = useState(null);
+  const [selectedTier, setSelectedTier] = useState(null);
   const [bookingData, setBookingData] = useState({
     subject: '',
     topic: '',
     date: '',
     time: '',
-    duration: 120, // 2 hours in minutes
+    duration: 120,
     notes: '',
     platform: 'Zoom'
   });
@@ -25,28 +75,17 @@ function CrunchTime() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   
-  // Add these new state variables
+  // Cancellation state
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [cancellingSession, setCancellingSession] = useState(null);
   const [cancellationReason, setCancellationReason] = useState('');
   
   const { currentUser, userProfile } = useAuth();
 
-  // Available tutoring sessions
-  const tutoringSessions = [
-    { id: 1, subject: 'Mathematics', tutor: 'Dr. Smith', duration: '2 hours', price: 299, icon: '🧮', category: 'math' },
-    { id: 2, subject: 'Data Science', tutor: 'Prof. Johnson', duration: '2 hours', price: 349, icon: '💻', category: 'tech' },
-    { id: 3, subject: 'Statistics', tutor: 'Ms. Williams', duration: '2 hours', price: 279, icon: '📊', category: 'math' },
-    { id: 4, subject: 'Calculus', tutor: 'Dr. Brown', duration: '2 hours', price: 319, icon: '🔢', category: 'math' },
-    { id: 5, subject: 'Programming', tutor: 'Mr. Davis', duration: '2 hours', price: 329, icon: '👨‍💻', category: 'tech' },
-    { id: 6, subject: 'Finance', tutor: 'Prof. Wilson', duration: '2 hours', price: 359, icon: '💰', category: 'business' },
-  ];
-
   // Fetch user's sessions
   useEffect(() => {
     const fetchUserSessions = async () => {
       if (!currentUser) return;
-      
       try {
         const sessions = await getUserCrunchTimeSessions(currentUser.uid);
         setUserSessions(sessions);
@@ -57,39 +96,28 @@ function CrunchTime() {
         setLoadingSessions(false);
       }
     };
-    
     fetchUserSessions();
   }, [currentUser]);
 
-  // New function: Handle cancellation request
+  // Handle cancellation request
   const handleRequestCancellation = async (sessionId) => {
     if (!currentUser) {
       setMessage('❌ Please login to request cancellation');
       return;
     }
-    
     if (!cancellationReason.trim()) {
       setMessage('❌ Please provide a reason for cancellation');
       return;
     }
-    
     try {
       setSubmitting(true);
       setMessage('⏳ Submitting cancellation request...');
-      
-      const result = await requestSessionCancellation(
-        sessionId, 
-        currentUser.uid, 
-        cancellationReason
-      );
-      
+      const result = await requestSessionCancellation(sessionId, currentUser.uid, cancellationReason);
       if (result.success) {
         setMessage(`✅ ${result.message || 'Cancellation request submitted! Admin will review your request.'}`);
         setShowCancellationModal(false);
         setCancellationReason('');
         setCancellingSession(null);
-        
-        // Refresh sessions list
         const sessions = await getUserCrunchTimeSessions(currentUser.uid);
         setUserSessions(sessions);
       } else {
@@ -103,52 +131,44 @@ function CrunchTime() {
     }
   };
 
-  const handleBookingClick = (session) => {
-    setSelectedSession(session);
+  const handleBookClick = (tier) => {
+    setSelectedTier(tier);
     setBookingData({
-      ...bookingData,
-      subject: session.subject,
-      duration: 120
+      subject: '',
+      topic: '',
+      date: '',
+      time: '',
+      duration: 120,
+      notes: '',
+      platform: 'Zoom'
     });
     setShowBookingModal(true);
   };
 
   const handleInputChange = (e) => {
-    setBookingData({
-      ...bookingData,
-      [e.target.name]: e.target.value
-    });
+    setBookingData({ ...bookingData, [e.target.name]: e.target.value });
   };
 
   const handleSubmitBooking = async (e) => {
     e.preventDefault();
-    
-    if (!currentUser) {
-      setMessage('❌ Please login to book a session');
-      return;
-    }
-    
-    if (!bookingData.date || !bookingData.time) {
-      setMessage('❌ Please select date and time');
-      return;
-    }
-    
+    if (!currentUser) { setMessage('❌ Please login to book a session'); return; }
+    if (!bookingData.date || !bookingData.time) { setMessage('❌ Please select date and time'); return; }
+    if (!bookingData.subject.trim()) { setMessage('❌ Please select or enter your subject'); return; }
+
+    const tier = SESSION_TIERS[selectedTier];
+
     try {
       setSubmitting(true);
       setMessage('⏳ Processing your booking...');
-      
-      // Combine date and time
       const dateTime = new Date(`${bookingData.date}T${bookingData.time}`);
-      
-      // Prepare user data
+
       const userData = {
         firstName: userProfile?.firstName || currentUser.displayName?.split(' ')[0] || 'User',
         lastName: userProfile?.lastName || currentUser.displayName?.split(' ').slice(1).join(' ') || '',
         email: userProfile?.email || currentUser.email || '',
         totalSessions: userProfile?.totalSessions || 0
       };
-      
-      // Prepare session data
+
       const sessionData = {
         subject: bookingData.subject,
         topic: bookingData.topic,
@@ -156,31 +176,19 @@ function CrunchTime() {
         duration: bookingData.duration,
         platform: bookingData.platform,
         notes: bookingData.notes,
-        price: selectedSession?.price || 299
+        price: tier.price,
+        tierName: tier.name,
+        tierId: tier.id
       };
-      
-      // Book session
+
       const result = await bookCrunchTimeSession(currentUser.uid, userData, sessionData);
-      
+
       if (result.success) {
-        setMessage(`✅ Session booked successfully! Session ID: ${result.sessionId}`);
-        
-        // Reset form
+        setMessage(`✅ ${tier.name} session booked! We'll confirm your slot shortly.`);
         setShowBookingModal(false);
-        setBookingData({
-          subject: '',
-          topic: '',
-          date: '',
-          time: '',
-          duration: 120,
-          notes: '',
-          platform: 'Zoom'
-        });
-        
-        // Refresh sessions list
+        setBookingData({ subject: '', topic: '', date: '', time: '', duration: 120, notes: '', platform: 'Zoom' });
         const sessions = await getUserCrunchTimeSessions(currentUser.uid);
         setUserSessions(sessions);
-        
       } else {
         throw new Error(result.error || 'Failed to book session');
       }
@@ -196,12 +204,7 @@ function CrunchTime() {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('en-ZA', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
   };
 
@@ -214,106 +217,117 @@ function CrunchTime() {
     }
   };
 
-  // Generate time slots (every 2 hours from 8am to 8pm)
   const generateTimeSlots = () => {
     const slots = [];
     for (let hour = 8; hour <= 20; hour += 2) {
-      const time = `${hour.toString().padStart(2, '0')}:00`;
-      slots.push(time);
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
     }
     return slots;
   };
 
-  // Get minimum date (tomorrow)
   const getMinDate = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split('T')[0];
   };
 
+  // Get subject options for the selected tier
+  const getSubjectOptions = () => {
+    if (!selectedTier) return [];
+    const tier = SESSION_TIERS[selectedTier];
+    // Return clean subject names without parenthetical details for the dropdown
+    return tier.subjects.filter(s => !s.startsWith('And ')).map(s => s);
+  };
+
   return (
     <DashboardLayout>
       <div className="crunchtime-page-content">
+
         {/* Page Header */}
         <div className="page-header">
-          <h1>⏰ CrunchTime Tutoring</h1>
-          <p>Book 2-hour intensive tutoring sessions with expert tutors</p>
+          <h1>⏰ PulseTime Tutoring</h1>
+          <p>Master your subjects with focused, 2-hour sessions</p>
         </div>
 
-        {/* Info Card */}
+        {/* How It Works */}
         <div className="info-card">
           <div className="info-card-icon">🎯</div>
           <div className="info-card-content">
             <h3>How It Works</h3>
-            <p>Book a 2-hour focused session with an expert tutor to master difficult concepts, prepare for exams, or get help with specific topics.</p>
-            <ul className="how-it-works-list">
-              <li>1. Choose subject & tutor</li>
-              <li>2. Select date & time</li>
-              <li>3. Pay securely online</li>
-              <li>4. Join video session</li>
-            </ul>
+            <ol className="how-it-works">
+              <li>📚 Choose your subject and education level below</li>
+              <li>📅 Book a date and time that works for you</li>
+              <li>💳 Pay securely online to confirm your slot</li>
+              <li>🎥 Join the live video session and get the help you need</li>
+            </ol>
+            <p style={{ marginTop: '0.75rem', color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic' }}>
+              We're a small, dedicated team of tutors committed to your success.
+            </p>
           </div>
         </div>
 
         {message && (
-          <div className={`message-alert ${message.includes('✅') ? 'success' : 'error'}`}>
-            <div className="alert-icon">
-              {message.includes('✅') ? '✅' : '❌'}
-            </div>
+          <div className={`message-alert ${message.includes('✅') ? 'success' : message.includes('⏳') ? 'info' : 'error'}`}>
+            <div className="alert-icon">{message.includes('✅') ? '✅' : message.includes('⏳') ? '⏳' : '❌'}</div>
             <div className="alert-message">{message}</div>
           </div>
         )}
 
-        {/* Available Sessions */}
+        {/* ===== PRICING TIERS ===== */}
         <div className="sessions-section">
           <div className="section-header">
-            <h2>📚 Available Sessions</h2>
-            <span className="sessions-count">{tutoringSessions.length} sessions</span>
+            <h2>📚 Choose Your Subject & Level</h2>
           </div>
 
-          <div className="sessions-grid">
-            {tutoringSessions.map((session) => (
-              <div key={session.id} className="session-card">
-                <div className="session-header">
-                  <div className="session-icon">{session.icon}</div>
-                  <div>
-                    <div className="session-subject">{session.subject}</div>
-                    <div className="session-tutor">{session.tutor}</div>
-                  </div>
-                </div>
-                
-                <div className="session-details">
-                  <div className="detail-item">
-                    <span className="detail-label">Duration</span>
-                    <span className="detail-value">{session.duration}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Price</span>
-                    <span className="detail-value price">R{session.price}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Category</span>
-                    <span className="detail-value">{session.category}</span>
-                  </div>
+          <div className="cv-package-grid">
+            {Object.values(SESSION_TIERS).map((tier) => (
+              <div key={tier.id} className="cv-package-card" style={{ textAlign: 'left' }}>
+                {/* Icon & Name */}
+                <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+                  <div className="cv-package-icon">{tier.icon}</div>
+                  <div className="cv-package-name">{tier.name}</div>
+                  <div className="cv-package-price">R{tier.price} <span style={{ fontSize: '0.8rem', fontWeight: '500', color: '#94a3b8' }}>/ 2hrs</span></div>
                 </div>
 
+                {/* Tagline */}
+                <div style={{
+                  fontSize: '0.85rem',
+                  color: '#94a3b8',
+                  marginBottom: '0.75rem',
+                  fontStyle: 'italic'
+                }}>
+                  {tier.tagline}
+                </div>
+
+                {/* Subjects */}
+                <ul className="cv-package-features">
+                  {tier.subjects.map((subject, idx) => (
+                    <li key={idx}>
+                      <span className="cv-feature-check">✓</span>
+                      {subject}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Book Button */}
                 <button 
-                  className="book-btn"
-                  onClick={() => handleBookingClick(session)}
+                  className="submit-button"
+                  style={{ marginTop: '1.25rem', fontSize: '0.9rem', padding: '0.85rem' }}
+                  onClick={() => handleBookClick(tier.id)}
                 >
-                  📅 Book Session
+                  📅 Book a {tier.name.split(' ')[0]} Session
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Your Upcoming Sessions */}
+        {/* ===== YOUR SESSIONS ===== */}
         <div className="bookings-section">
           <div className="section-header">
             <h2>📋 Your Sessions</h2>
             <span className="sessions-count">
-              {userSessions.filter(s => s.status === 'confirmed').length} upcoming
+              {userSessions.filter(s => s.status !== 'cancelled').length} active
             </span>
           </div>
 
@@ -326,11 +340,11 @@ function CrunchTime() {
             <div className="empty-bookings">
               <div className="empty-icon">📭</div>
               <h3>No sessions booked yet</h3>
-              <p>Book your first tutoring session above!</p>
+              <p>Choose a level above to book your first tutoring session!</p>
             </div>
           ) : (
             <div className="sessions-list">
-              {userSessions.map((session) => {
+              {userSessions.filter(s => s.status !== 'cancelled').map((session) => {
                 const statusDisplay = getStatusDisplay(session.status);
                 
                 return (
@@ -351,6 +365,25 @@ function CrunchTime() {
                         {statusDisplay.icon} {statusDisplay.text}
                       </div>
                     </div>
+
+                    {/* Tier badge */}
+                    {session.tierName && (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        border: '1px solid rgba(139, 92, 246, 0.2)',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        color: '#a78bfa',
+                        fontWeight: '600',
+                        marginBottom: '10px'
+                      }}>
+                        📚 {session.tierName} • R{session.price}
+                      </div>
+                    )}
                     
                     <div className="booking-details">
                       <div className="detail-item">
@@ -371,33 +404,22 @@ function CrunchTime() {
                       </div>
                     </div>
                     
-                    {/* Meeting Link */}
                     {session.meetingLink && (
                       <div className="meeting-link">
-                        <a 
-                          href={session.meetingLink} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="join-btn"
-                        >
+                        <a href={session.meetingLink} target="_blank" rel="noopener noreferrer" className="join-btn">
                           🔗 Join Meeting
                         </a>
                       </div>
                     )}
 
-                    {/* Cancellation Status */}
                     {session.cancellationRequested && (
                       <div className="cancellation-status">
-                        <div className="status-badge warning">
-                          ⚠️ Cancellation Requested
-                        </div>
+                        <div className="status-badge warning">⚠️ Cancellation Requested</div>
                         <p><strong>Status:</strong> {session.cancellationStatus || 'Pending admin review'}</p>
-                        {session.cancellationReason && (
-                          <p><strong>Reason:</strong> {session.cancellationReason}</p>
-                        )}
+                        {session.cancellationReason && <p><strong>Reason:</strong> {session.cancellationReason}</p>}
                         {session.cancellationPenaltyCalculated && (
                           <p className="penalty-note">
-                            <strong>Calculated Penalty:</strong> R{session.cancellationPenaltyCalculated}
+                            <strong>Penalty:</strong> R{session.cancellationPenaltyCalculated}
                             {session.cancellationRefundCalculated && (
                               <span> • <strong>Refund:</strong> R{session.cancellationRefundCalculated}</span>
                             )}
@@ -406,14 +428,10 @@ function CrunchTime() {
                       </div>
                     )}
 
-                    {/* Cancellation Button - Only show if session is confirmed and no cancellation requested */}
                     {session.status === 'confirmed' && !session.cancellationRequested && (
                       <button 
                         className="cancel-btn secondary"
-                        onClick={() => {
-                          setCancellingSession(session.id);
-                          setShowCancellationModal(true);
-                        }}
+                        onClick={() => { setCancellingSession(session.id); setShowCancellationModal(true); }}
                       >
                         🚫 Request Cancellation
                       </button>
@@ -432,15 +450,15 @@ function CrunchTime() {
           )}
         </div>
 
-        {/* How It Works */}
+        {/* Steps Section */}
         <div className="how-it-works">
           <h2>🔄 How It Works</h2>
           <div className="steps-grid">
             <div className="step">
               <div className="step-number">1</div>
               <div className="step-content">
-                <h3>Choose Subject</h3>
-                <p>Select from available subjects and tutors</p>
+                <h3>Choose Level</h3>
+                <p>Pick High School, First-Year, or Advanced</p>
               </div>
             </div>
             <div className="step">
@@ -468,30 +486,31 @@ function CrunchTime() {
         </div>
       </div>
 
-      {/* Booking Modal */}
-      {showBookingModal && (
+      {/* ===== BOOKING MODAL ===== */}
+      {showBookingModal && selectedTier && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>📅 Book {selectedSession?.subject} Session</h2>
-              <button 
-                className="close-modal"
-                onClick={() => setShowBookingModal(false)}
-              >
-                ✕
-              </button>
+              <h2>{SESSION_TIERS[selectedTier].icon} Book {SESSION_TIERS[selectedTier].name} Session</h2>
+              <button className="close-modal" onClick={() => setShowBookingModal(false)}>✕</button>
             </div>
             
             <form onSubmit={handleSubmitBooking}>
               <div className="form-group">
                 <label>Subject *</label>
-                <input
-                  type="text"
+                <select
+                  name="subject"
                   value={bookingData.subject}
-                  readOnly
-                  className="form-input"
-                  style={{backgroundColor: '#f3f4f6'}}
-                />
+                  onChange={handleInputChange}
+                  className="form-select"
+                  required
+                >
+                  <option value="">Select a subject</option>
+                  {getSubjectOptions().map((subject, idx) => (
+                    <option key={idx} value={subject}>{subject}</option>
+                  ))}
+                  <option value="Other">Other (specify in notes)</option>
+                </select>
               </div>
               
               <div className="form-group">
@@ -501,7 +520,7 @@ function CrunchTime() {
                   name="topic"
                   value={bookingData.topic}
                   onChange={handleInputChange}
-                  placeholder="e.g., Calculus Integration, Python Pandas"
+                  placeholder="e.g., Integration by parts, Newton's laws"
                   className="form-input"
                 />
               </div>
@@ -519,7 +538,6 @@ function CrunchTime() {
                     required
                   />
                 </div>
-                
                 <div className="form-group">
                   <label>Time *</label>
                   <select
@@ -530,8 +548,8 @@ function CrunchTime() {
                     required
                   >
                     <option value="">Select time</option>
-                    {generateTimeSlots().map((time, index) => (
-                      <option key={index} value={time}>{time}</option>
+                    {generateTimeSlots().map((time, idx) => (
+                      <option key={idx} value={time}>{time}</option>
                     ))}
                   </select>
                 </div>
@@ -551,7 +569,6 @@ function CrunchTime() {
                     <option value="60">1 hour (Quick)</option>
                   </select>
                 </div>
-                
                 <div className="form-group">
                   <label>Platform</label>
                   <select
@@ -573,7 +590,7 @@ function CrunchTime() {
                   name="notes"
                   value={bookingData.notes}
                   onChange={handleInputChange}
-                  placeholder="Specific areas you want to focus on, preferred teaching style, etc."
+                  placeholder="Specific areas to focus on, learning style preferences, etc."
                   rows="3"
                   className="form-textarea"
                 />
@@ -581,65 +598,48 @@ function CrunchTime() {
               
               <div className="price-summary">
                 <div className="price-item">
-                  <span>Session Fee:</span>
-                  <span>R{selectedSession?.price || 299}</span>
+                  <span>{SESSION_TIERS[selectedTier].icon} {SESSION_TIERS[selectedTier].name}:</span>
+                  <span>R{SESSION_TIERS[selectedTier].price}</span>
                 </div>
                 <div className="price-total">
                   <strong>Total:</strong>
-                  <strong>R{selectedSession?.price || 299}</strong>
+                  <strong>R{SESSION_TIERS[selectedTier].price}</strong>
                 </div>
               </div>
               
               <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => setShowBookingModal(false)}
-                  disabled={submitting}
-                >
+                <button type="button" className="btn-cancel" onClick={() => setShowBookingModal(false)} disabled={submitting}>
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn-confirm"
-                  disabled={submitting || !bookingData.date || !bookingData.time}
+                  disabled={submitting || !bookingData.date || !bookingData.time || !bookingData.subject}
                 >
                   {submitting ? (
-                    <>
-                      <span className="spinner-small"></span>
-                      PROCESSING...
-                    </>
+                    <><span className="spinner-small"></span> PROCESSING...</>
                   ) : (
-                    `🚀 BOOK NOW • R${selectedSession?.price || 299}`
+                    `🚀 BOOK NOW • R${SESSION_TIERS[selectedTier].price}`
                   )}
                 </button>
               </div>
               
               <div className="payment-notice">
                 <p>💳 Payment will be processed after admin confirms your session</p>
-                <p>📞 Need help? WhatsApp: +27 12 345 6789</p>
+                <p>📞 Need help? WhatsApp us for support!</p>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Cancellation Request Modal */}
+      {/* ===== CANCELLATION MODAL ===== */}
       {showCancellationModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
               <h2>🚫 Request Session Cancellation</h2>
-              <button 
-                className="close-modal"
-                onClick={() => {
-                  setShowCancellationModal(false);
-                  setCancellationReason('');
-                  setCancellingSession(null);
-                }}
-              >
-                ✕
-              </button>
+              <button className="close-modal" onClick={() => { setShowCancellationModal(false); setCancellationReason(''); setCancellingSession(null); }}>✕</button>
             </div>
             
             <div className="modal-body">
@@ -648,15 +648,12 @@ function CrunchTime() {
                 <div className="warning-content">
                   <h3>Cancellation Policy</h3>
                   <ul>
-                    <li>Cancellations within 24 hours: 50% penalty</li>
-                    <li>Cancellations within 48 hours: 25% penalty</li>
-                    <li>Cancellations more than 48 hours: 10% penalty</li>
-                    <li>Cancellations more than 7 days: No penalty (full refund)</li>
+                    <li>Within 24 hours: 50% penalty</li>
+                    <li>Within 48 hours: 25% penalty</li>
+                    <li>More than 48 hours: 10% penalty</li>
+                    <li>More than 7 days: No penalty (full refund)</li>
                     <li>Admin approval required for all cancellations</li>
                   </ul>
-                  <p className="policy-note">
-                    Penalties are calculated automatically based on time remaining.
-                  </p>
                 </div>
               </div>
               
@@ -670,23 +667,12 @@ function CrunchTime() {
                   className="form-textarea"
                   required
                 />
-                <small className="form-hint">
-                  Your reason will be reviewed by admin. Be specific to help with the review process.
-                </small>
+                <small className="form-hint">Your reason will be reviewed by admin.</small>
               </div>
             </div>
             
             <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={() => {
-                  setShowCancellationModal(false);
-                  setCancellationReason('');
-                  setCancellingSession(null);
-                }}
-                disabled={submitting}
-              >
+              <button type="button" className="btn-cancel" onClick={() => { setShowCancellationModal(false); setCancellationReason(''); setCancellingSession(null); }} disabled={submitting}>
                 Cancel
               </button>
               <button
@@ -695,14 +681,7 @@ function CrunchTime() {
                 onClick={() => handleRequestCancellation(cancellingSession)}
                 disabled={submitting || !cancellationReason.trim()}
               >
-                {submitting ? (
-                  <>
-                    <span className="spinner-small"></span>
-                    SUBMITTING...
-                  </>
-                ) : (
-                  '🚫 Submit Cancellation Request'
-                )}
+                {submitting ? (<><span className="spinner-small"></span> SUBMITTING...</>) : ('🚫 Submit Cancellation Request')}
               </button>
             </div>
           </div>

@@ -47,18 +47,19 @@ function AdminRoute({ children }) {
   return children;
 }
 
-// User Type Redirect Component - ADD THIS NEW COMPONENT
-function UserTypeRedirect() {
+// Smart Dashboard - renders correct dashboard based on userType
+function SmartDashboard() {
   const { userProfile } = useAuth();
   
-  // Redirect based on userType
-  if (userProfile?.userType === 'professional') {
-    return <Navigate to="/professional-dashboard" />;
-  } else if (userProfile?.userType === 'learner') {
-    return <Navigate to="/learner-dashboard" />;
+  const userType = userProfile?.userType?.toLowerCase();
+  
+  if (userType === 'professional') {
+    return <ProfessionalDashboard />;
+  } else if (userType === 'learner') {
+    return <LearnerDashboard />;
   } else {
-    // Default to student dashboard
-    return <Navigate to="/dashboard" />;
+    // Default: student dashboard (covers 'student' and any other/undefined type)
+    return <Dashboard />;
   }
 }
 
@@ -69,8 +70,6 @@ function AppContent() {
   // List of routes where navbar should be HIDDEN (protected pages with DashboardLayout)
   const hideNavbarRoutes = [
     '/dashboard',
-    '/professional-dashboard',
-    '/learner-dashboard',
     '/courses',
     '/assignments',
     '/cv-builder',
@@ -97,40 +96,12 @@ function AppContent() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           
-          {/* Main Dashboard Redirect - ADD THIS ROUTE */}
-          <Route 
-            path="/main-dashboard" 
-            element={
-              <ProtectedRoute>
-                <UserTypeRedirect />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* User Type Specific Dashboards (WITHOUT Navbar, use DashboardLayout) */}
+          {/* Smart Dashboard - automatically shows correct dashboard per user type */}
           <Route 
             path="/dashboard" 
             element={
               <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="/professional-dashboard" 
-            element={
-              <ProtectedRoute>
-                <ProfessionalDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="/learner-dashboard" 
-            element={
-              <ProtectedRoute>
-                <LearnerDashboard />
+                <SmartDashboard />
               </ProtectedRoute>
             } 
           />
@@ -208,6 +179,11 @@ function AppContent() {
               </AdminRoute>
             } 
           />
+          
+          {/* Legacy routes redirect to smart dashboard */}
+          <Route path="/professional-dashboard" element={<Navigate to="/dashboard" />} />
+          <Route path="/learner-dashboard" element={<Navigate to="/dashboard" />} />
+          <Route path="/main-dashboard" element={<Navigate to="/dashboard" />} />
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />

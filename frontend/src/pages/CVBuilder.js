@@ -11,6 +11,37 @@ import {
 } from '../services/firebase';
 import '../App.css';
 
+// CV Package options
+const CV_PACKAGES = {
+  basic: {
+    id: 'basic',
+    name: 'Basic CV Clean-Up',
+    icon: '⚡',
+    price: 50,
+    features: ['Professional formatting & spell check', 'Grammar & layout improvements'],
+    popular: false,
+    turnaround: '72 hours'
+  },
+  tailored: {
+    id: 'tailored',
+    name: 'Tailored CV',
+    icon: '⭐',
+    price: 80,
+    features: ['Customized for the job you provided', 'Keyword optimization for ATS'],
+    popular: true,
+    turnaround: '48 hours'
+  },
+  priority: {
+    id: 'priority',
+    name: 'Priority Tailored CV',
+    icon: '🚀',
+    price: 100,
+    features: ['Full tailoring + express service', 'ATS optimization included'],
+    popular: false,
+    turnaround: '24 hours'
+  }
+};
+
 function CVBuilder() {
   const [jobPosting, setJobPosting] = useState(null);
   const [currentCV, setCurrentCV] = useState(null);
@@ -23,7 +54,8 @@ function CVBuilder() {
     achievements: '',
     targetCompanies: '',
     deadline: '',
-    notes: ''
+    notes: '',
+    cvPackage: 'tailored'
   });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -71,11 +103,9 @@ function CVBuilder() {
       
       if (result.success) {
         setMessage('✅ CV request deleted successfully');
-        // Refresh applications list
         const updatedApplications = applications.filter(app => app.id !== requestId);
         setApplications(updatedApplications);
         
-        // Log activity
         await logUserActivity(currentUser.uid, 'CV_REQUEST_DELETED', {
           requestId: requestId
         });
@@ -128,6 +158,8 @@ function CVBuilder() {
       return;
     }
 
+    const selectedPackage = CV_PACKAGES[formData.cvPackage];
+
     try {
       setSubmitting(true);
       setMessage('⏳ Uploading files...');
@@ -145,7 +177,6 @@ function CVBuilder() {
       if (jobPosting) {
         setMessage('⏳ Uploading job posting...');
         jobPostingUrl = await handleFileUpload(jobPosting, 'job posting');
-        // Continue even if job posting upload fails
       }
 
       setMessage('⏳ Submitting request...');
@@ -167,16 +198,20 @@ function CVBuilder() {
         achievements: formData.achievements.trim(),
         targetCompanies: formData.targetCompanies.trim(),
         deadline: formData.deadline || null,
-        currentCV: cvFileUrl, // Now a URL, not a file
-        jobPosting: jobPostingUrl, // URL if uploaded
-        notes: formData.notes.trim()
+        currentCV: cvFileUrl,
+        jobPosting: jobPostingUrl,
+        notes: formData.notes.trim(),
+        cvPackage: formData.cvPackage,
+        packageName: selectedPackage.name,
+        priceEstimate: selectedPackage.price,
+        turnaround: selectedPackage.turnaround
       };
 
       // Submit CV request
       const result = await submitCVRequest(currentUser.uid, userData, cvData);
 
       if (result.success) {
-        setMessage('✅ CV request submitted successfully! We\'ll notify you when ready.');
+        setMessage(`✅ ${selectedPackage.name} request submitted! Estimated delivery: ${selectedPackage.turnaround}`);
         
         // Reset form
         setJobPosting(null);
@@ -189,16 +224,17 @@ function CVBuilder() {
           achievements: '',
           targetCompanies: '',
           deadline: '',
-          notes: ''
+          notes: '',
+          cvPackage: 'tailored'
         });
         
-        // Log activity
         await logUserActivity(currentUser.uid, 'CV_REQUEST_SUBMITTED', {
           requestId: result.requestId,
-          jobTitle: cvData.jobTitle
+          jobTitle: cvData.jobTitle,
+          package: formData.cvPackage,
+          price: selectedPackage.price
         });
         
-        // Refresh applications list
         setTimeout(() => {
           window.location.reload();
         }, 2000);
@@ -216,37 +252,13 @@ function CVBuilder() {
   const getStatusDisplay = (status) => {
     switch (status) {
       case 'completed': 
-        return { 
-          text: 'Completed ✅', 
-          color: '#10B981', 
-          icon: '✅', 
-          className: 'status-completed',
-          message: 'Your tailored CV is ready!' 
-        };
+        return { text: 'Completed ✅', color: '#10B981', icon: '✅', className: 'status-completed', message: 'Your tailored CV is ready!' };
       case 'in-progress': 
-        return { 
-          text: 'In Progress', 
-          color: '#3B82F6', 
-          icon: '🔄', 
-          className: 'status-progress',
-          message: 'Our experts are working on your CV' 
-        };
+        return { text: 'In Progress', color: '#3B82F6', icon: '🔄', className: 'status-progress', message: 'Our experts are working on your CV' };
       case 'reviewing': 
-        return { 
-          text: 'Reviewing', 
-          color: '#8B5CF6', 
-          icon: '📝', 
-          className: 'status-review',
-          message: 'Your CV is being reviewed' 
-        };
+        return { text: 'Reviewing', color: '#8B5CF6', icon: '📝', className: 'status-review', message: 'Your CV is being reviewed' };
       default: 
-        return { 
-          text: 'Pending', 
-          color: '#F59E0B', 
-          icon: '⏳', 
-          className: 'status-pending',
-          message: 'Awaiting processing' 
-        };
+        return { text: 'Pending', color: '#F59E0B', icon: '⏳', className: 'status-pending', message: 'Awaiting processing' };
     }
   };
 
@@ -271,18 +283,13 @@ function CVBuilder() {
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString('en-ZA', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+    return date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const handleFileSelect = (e, setFileFunction, fileType) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Validate file type
     const validTypes = {
       cv: ['.pdf', '.doc', '.docx', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
       jobPosting: ['.pdf', '.jpg', '.jpeg', '.png', 'image/*', 'application/pdf']
@@ -292,11 +299,10 @@ function CVBuilder() {
     
     if (!validTypes[fileType].includes(fileExtension) && !validTypes[fileType].includes(file.type)) {
       setMessage(`❌ Invalid file type for ${fileType === 'cv' ? 'CV' : 'job posting'}. Please upload PDF, DOC, or DOCX for CV, or PDF/JPG/PNG for job posting.`);
-      e.target.value = ''; // Clear the input
+      e.target.value = '';
       return;
     }
     
-    // Validate file size (10MB for CV, 5MB for job posting)
     const maxSize = fileType === 'cv' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
     if (file.size > maxSize) {
       setMessage(`❌ File too large. Maximum size is ${fileType === 'cv' ? '10MB' : '5MB'}`);
@@ -307,6 +313,9 @@ function CVBuilder() {
     setFileFunction(file);
     setMessage(`✅ ${fileType === 'cv' ? 'CV' : 'Job posting'} selected: ${file.name}`);
   };
+
+  // Get selected package info
+  const selectedPkg = CV_PACKAGES[formData.cvPackage];
 
   return (
     <DashboardLayout>
@@ -325,9 +334,9 @@ function CVBuilder() {
             <ol className="how-it-works">
               <li>📄 Upload your current CV (required)</li>
               <li>📝 Provide job details and requirements</li>
+              <li>📦 Choose your CV package</li>
               <li>🎯 Our experts tailor your CV to match the job</li>
               <li>✅ Receive professionally tailored CV with ATS optimization</li>
-              <li>💬 Request revisions if needed</li>
             </ol>
           </div>
         </div>
@@ -527,6 +536,54 @@ function CVBuilder() {
               </div>
             </div>
 
+            {/* ===== STEP 3: CV PACKAGE SELECTOR ===== */}
+            <div className="form-details-section">
+              <h3>3. Choose Your CV Package</h3>
+              <div className="cv-package-grid">
+                {Object.values(CV_PACKAGES).map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className={`cv-package-card ${formData.cvPackage === pkg.id ? 'selected' : ''} ${pkg.popular ? 'popular' : ''}`}
+                    onClick={() => !submitting && setFormData({...formData, cvPackage: pkg.id})}
+                    style={{ cursor: submitting ? 'not-allowed' : 'pointer' }}
+                  >
+                    {/* Popular Badge */}
+                    {pkg.popular && (
+                      <div className="cv-package-popular-badge">MOST POPULAR</div>
+                    )}
+
+                    {/* Icon */}
+                    <div className="cv-package-icon">{pkg.icon}</div>
+
+                    {/* Name */}
+                    <div className="cv-package-name">{pkg.name}</div>
+
+                    {/* Price */}
+                    <div className="cv-package-price">R{pkg.price}</div>
+
+                    {/* Features */}
+                    <ul className="cv-package-features">
+                      {pkg.features.map((feature, idx) => (
+                        <li key={idx}>
+                          <span className="cv-feature-check">✓</span>
+                          {feature}
+                        </li>
+                      ))}
+                      <li>
+                        <span className="cv-feature-check">✓</span>
+                        Ready in {pkg.turnaround}
+                      </li>
+                    </ul>
+
+                    {/* Selected indicator */}
+                    {formData.cvPackage === pkg.id && (
+                      <div className="cv-package-selected-badge">✔ Selected</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <button 
               type="submit" 
               className="submit-button"
@@ -543,13 +600,13 @@ function CVBuilder() {
                   UPLOADING FILES...
                 </>
               ) : (
-                '🚀 SUBMIT CV REQUEST • R399'
+                `${selectedPkg.icon} SUBMIT ${selectedPkg.name.toUpperCase()} • R${selectedPkg.price}`
               )}
             </button>
             
             <div className="price-info">
-              <p>💡 Standard CV tailoring: <strong>R399</strong> | Express (48h): <strong>R599</strong> | Premium (24h + ATS optimization): <strong>R799</strong></p>
-              <p>📞 Need immediate help? WhatsApp: +27 12 345 6789</p>
+              <p>📦 Selected: <strong>{selectedPkg.icon} {selectedPkg.name}</strong> — <strong>R{selectedPkg.price}</strong> (Delivery: {selectedPkg.turnaround})</p>
+              <p>💬 Need help choosing? WhatsApp us for advice!</p>
             </div>
           </form>
         </div>
@@ -596,7 +653,7 @@ function CVBuilder() {
                         {statusDisplay.icon} {statusDisplay.text}
                       </div>
                       
-                      {/* Status Message - Added */}
+                      {/* Status Message */}
                       <div style={{marginTop: '8px'}}>
                         <p style={{
                           color: statusDisplay.color,
@@ -615,6 +672,25 @@ function CVBuilder() {
                       <h3>{app.jobTitle || 'CV Tailoring'}</h3>
                       {app.industry && (
                         <p className="company-name">{app.industry}</p>
+                      )}
+
+                      {/* Package info badge */}
+                      {app.packageName && (
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          border: '1px solid rgba(139, 92, 246, 0.2)',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          fontSize: '0.8rem',
+                          color: '#a78bfa',
+                          fontWeight: '600',
+                          marginBottom: '10px'
+                        }}>
+                          📦 {app.packageName} {app.priceEstimate ? `• R${app.priceEstimate}` : ''}
+                        </div>
                       )}
                       
                       <div className="application-details">
@@ -643,6 +719,13 @@ function CVBuilder() {
                             <span className="detail-value price-value">R{app.priceEstimate}</span>
                           </div>
                         )}
+
+                        {app.turnaround && (
+                          <div className="detail-item">
+                            <span className="detail-label">Turnaround:</span>
+                            <span className="detail-value">{app.turnaround}</span>
+                          </div>
+                        )}
                       </div>
                       
                       {/* Original CV Section */}
@@ -662,7 +745,7 @@ function CVBuilder() {
                         </div>
                       )}
 
-                      {/* Tailored CV Section - NEW */}
+                      {/* Tailored CV Section */}
                       {app.tailoredCV && (
                         <div className="tailored-cv-available" style={{
                           background: '#d1fae5',
@@ -755,7 +838,6 @@ function CVBuilder() {
                         </a>
                       )}
                       
-                      {/* Delete Button - Only show for pending or reviewing status */}
                       {(app.status === 'pending' || app.status === 'reviewing') ? (
                         <button 
                           onClick={() => handleDeleteCVRequest(app.id)}

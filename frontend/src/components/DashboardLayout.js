@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import '../App.css';
 
 function DashboardLayout({ children }) {
-  const { userProfile, logout, isAdmin } = useAuth(); // ADD isAdmin from AuthContext
+  const { userProfile, logout, isAdmin } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
   const navigate = useNavigate();
@@ -55,7 +55,7 @@ function DashboardLayout({ children }) {
       {/* SUBSCRIPTION BADGE */}
       <div className={`subscription-badge ${isMobile ? 'mobile-badge' : 'desktop-badge'}`}>
         <div className="pulse-learn-text">PULSE LEARN</div>
-        <div className="subscription-level">LVL 1 - GOLD</div>
+        <div className="subscription-level">LVL {userProfile?.level || 1} - {userProfile?.subscriptionTier?.toUpperCase() || 'GOLD'}</div>
       </div>
 
       {/* MOBILE NAVIGATION OVERLAY */}
@@ -64,11 +64,11 @@ function DashboardLayout({ children }) {
           <div className="mobile-nav-sidebar" onClick={e => e.stopPropagation()}>
             <div className="mobile-nav-header">
               <div className="mobile-user-avatar">
-                {userProfile?.displayName?.charAt(0) || 'M'}
+                {userProfile?.displayName?.charAt(0) || 'U'}
               </div>
               <div className="mobile-user-info">
-                <h3>{userProfile?.displayName || "MOSALA SERAI"}</h3>
-                <p className="subscription-tag">LVL 1 - GOLD</p>
+                <h3>{userProfile?.displayName || "User"}</h3>
+                <p className="subscription-tag">LVL {userProfile?.level || 1} - {userProfile?.subscriptionTier?.toUpperCase() || 'GOLD'}</p>
               </div>
               <button 
                 className="close-nav-btn"
@@ -105,7 +105,15 @@ function DashboardLayout({ children }) {
                 <span className="nav-icon">💰</span> Finance
               </button>
               
-              {/* ADD CRUNCHTIME HERE */}
+              {/* ASSIGNMENTS */}
+              <button 
+                className={`mobile-nav-item ${isActive('/assignments') ? 'active' : ''}`}
+                onClick={() => handleNavigation('/assignments')}
+              >
+                <span className="nav-icon">📝</span> Assignments
+              </button>
+              
+              {/* CRUNCHTIME */}
               <button 
                 className={`mobile-nav-item ${isActive('/crunch-time') ? 'active' : ''}`}
                 onClick={() => handleNavigation('/crunch-time')}
@@ -177,7 +185,16 @@ function DashboardLayout({ children }) {
               <span className="sidebar-text">Finance</span>
             </button>
             
-            {/* ADD CRUNCHTIME HERE */}
+            {/* ASSIGNMENTS */}
+            <button 
+              className={`sidebar-item ${isActive('/assignments') ? 'active' : ''}`}
+              onClick={() => handleNavigation('/assignments')}
+            >
+              <span className="sidebar-icon">📝</span>
+              <span className="sidebar-text">Assignments</span>
+            </button>
+            
+            {/* CRUNCHTIME */}
             <button 
               className={`sidebar-item ${isActive('/crunch-time') ? 'active' : ''}`}
               onClick={() => handleNavigation('/crunch-time')}
@@ -237,7 +254,16 @@ function DashboardLayout({ children }) {
               <span className="bottom-nav-label">Learn</span>
             </button>
             
-            {/* ADD CRUNCHTIME HERE */}
+            {/* ASSIGNMENTS */}
+            <button 
+              className={`bottom-nav-item ${isActive('/assignments') ? 'active' : ''}`}
+              onClick={() => handleNavigation('/assignments')}
+            >
+              <span className="bottom-nav-icon">📝</span>
+              <span className="bottom-nav-label">Tasks</span>
+            </button>
+            
+            {/* CRUNCHTIME */}
             <button 
               className={`bottom-nav-item ${isActive('/crunch-time') ? 'active' : ''}`}
               onClick={() => handleNavigation('/crunch-time')}

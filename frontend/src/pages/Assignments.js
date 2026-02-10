@@ -2,17 +2,51 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
-import { uploadAssignment, logUserActivity } from '../services/firebase'; // Use our new functions
+import { uploadAssignment, logUserActivity } from '../services/firebase';
 import '../App.css';
+
+// Assignment Plan options
+const ASSIGNMENT_PLANS = {
+  standard: {
+    id: 'standard',
+    name: 'Standard Plan',
+    icon: '📅',
+    price: 249,
+    features: ['Delivery in 7 days', 'Detailed, step-by-step solution', 'Plagiarism check included'],
+    popular: false,
+    turnaround: '7 days',
+    tagline: 'Best for planning ahead'
+  },
+  priority: {
+    id: 'priority',
+    name: 'Priority Plan',
+    icon: '⚡',
+    price: 349,
+    features: ['Delivery in 48 hours', 'Everything in Standard, but faster', 'For upcoming deadlines'],
+    popular: true,
+    turnaround: '48 hours',
+    tagline: 'For upcoming deadlines'
+  },
+  express: {
+    id: 'express',
+    name: 'Express Plan',
+    icon: '🚨',
+    price: 449,
+    features: ['Delivery in 24 hours', 'Urgent, high-priority service', 'For last-minute emergencies'],
+    popular: false,
+    turnaround: '24 hours',
+    tagline: 'For last-minute emergencies'
+  }
+};
 
 function Assignments() {
   const [file, setFile] = useState(null);
   const [assignmentType, setAssignmentType] = useState('question');
-  const [urgency, setUrgency] = useState('1week');
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
   const [instructions, setInstructions] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState('priority'); // Default to most popular
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [submissions, setSubmissions] = useState([]);
@@ -26,11 +60,9 @@ function Assignments() {
       if (!currentUser) return;
       
       try {
-        // Import the functions we need
         const { getAllUserAssignments } = await import('../services/firebase');
         const userAssignments = await getAllUserAssignments(currentUser.uid);
         
-        // Sort by most recent
         const sortedAssignments = userAssignments.sort((a, b) => 
           b.createdAt?.toDate() - a.createdAt?.toDate()
         );
@@ -59,21 +91,24 @@ function Assignments() {
       return;
     }
 
+    const plan = ASSIGNMENT_PLANS[selectedPlan];
+
     try {
       setUploading(true);
       setMessage('');
 
-      // Prepare assignment data
       const assignmentData = {
         subject: subject.trim(),
         topic: topic.trim(),
         instructions: instructions.trim(),
         deadline: deadline || null,
-        urgency: urgency,
-        type: assignmentType
+        urgency: selectedPlan,
+        type: assignmentType,
+        planName: plan.name,
+        priceEstimate: plan.price,
+        turnaround: plan.turnaround
       };
 
-      // Use our new uploadAssignment function
       const result = await uploadAssignment(
         currentUser.uid,
         {
@@ -87,7 +122,7 @@ function Assignments() {
       );
 
       if (result.success) {
-        setMessage('✅ Assignment submitted successfully!');
+        setMessage(`✅ Assignment submitted! ${plan.name} — estimated delivery: ${plan.turnaround}`);
         setFile(null);
         setSubject('');
         setTopic('');
@@ -95,15 +130,17 @@ function Assignments() {
         setDeadline('');
         e.target.reset();
         
-        // Log activity
         await logUserActivity(currentUser.uid, 'ASSIGNMENT_UPLOADED', {
           assignmentId: result.assignmentId,
           fileName: file.name,
-          subject: assignmentData.subject
+          subject: assignmentData.subject,
+          plan: selectedPlan,
+          price: plan.price
         });
         
-        // Refresh submissions list
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       } else {
         throw new Error(result.error || 'Failed to upload assignment');
       }
@@ -114,15 +151,6 @@ function Assignments() {
       setUploading(false);
     }
   }
-
-  const getUrgencyDisplay = (urgencyLevel) => {
-    switch (urgencyLevel) {
-      case '24hours': return { text: '24 Hours', color: '#EF4444', icon: '🚨', price: 'R499' };
-      case '48hours': return { text: '48 Hours', color: '#F59E0B', icon: '⚡', price: 'R399' };
-      case '1week': return { text: '1 Week', color: '#10B981', icon: '📅', price: 'R299' };
-      default: return { text: 'Standard', color: '#6B7280', icon: '📋', price: 'R299' };
-    }
-  };
 
   const getStatusDisplay = (status) => {
     switch (status) {
@@ -146,6 +174,18 @@ function Assignments() {
     }
   };
 
+  const getPlanDisplay = (planId) => {
+    const plan = ASSIGNMENT_PLANS[planId];
+    if (plan) return { text: plan.name, icon: plan.icon, price: `R${plan.price}`, turnaround: plan.turnaround };
+    // Backwards compatibility with old urgency values
+    switch (planId) {
+      case '24hours': return { text: 'Express Plan', icon: '🚨', price: 'R449', turnaround: '24 hours' };
+      case '48hours': return { text: 'Priority Plan', icon: '⚡', price: 'R349', turnaround: '48 hours' };
+      case '1week': return { text: 'Standard Plan', icon: '📅', price: 'R249', turnaround: '7 days' };
+      default: return { text: 'Standard Plan', icon: '📋', price: 'R249', turnaround: '7 days' };
+    }
+  };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Recently';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -157,11 +197,7 @@ function Assignments() {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    return date.toLocaleDateString('en-ZA', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+    return date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const handleRequestRevision = async (assignmentId) => {
@@ -169,13 +205,11 @@ function Assignments() {
     if (!revisionNotes || revisionNotes.trim() === '') return;
     
     try {
-      // Import the function
       const { requestAssignmentRevision } = await import('../services/firebase');
       const result = await requestAssignmentRevision(assignmentId, currentUser.uid, revisionNotes.trim());
       
       if (result.success) {
         setMessage('✅ Revision requested successfully! Tutor will review your request.');
-        // Refresh submissions list
         window.location.reload();
       } else {
         throw new Error(result.error || 'Failed to request revision');
@@ -197,7 +231,6 @@ function Assignments() {
       
       if (result.success) {
         setMessage('✅ Submission deleted successfully!');
-        // Remove from local state
         setSubmissions(submissions.filter(sub => sub.id !== assignmentId));
       } else {
         throw new Error(result.error || 'Failed to delete submission');
@@ -208,13 +241,16 @@ function Assignments() {
     }
   };
 
+  // Get current selected plan
+  const currentPlan = ASSIGNMENT_PLANS[selectedPlan];
+
   return (
     <DashboardLayout>
       <div className="assignments-page-content">
         {/* Page Header */}
         <div className="page-header">
-          <h1>📝 Assignment Support</h1>
-          <p>Get expert help with your academic assignments and questions</p>
+          <h1>📚 Assignment Help</h1>
+          <p>Get the marks you deserve — expert help with your assignments</p>
         </div>
 
         {/* Info Card */}
@@ -224,10 +260,10 @@ function Assignments() {
             <h3>How It Works</h3>
             <ol className="how-it-works">
               <li>📤 Upload your assignment file (PDF, DOCX, Images)</li>
-              <li>📝 Provide assignment details and deadline</li>
-              <li>💰 Get instant price estimate based on urgency</li>
-              <li>✅ Receive expert solution with explanations</li>
-              <li>💬 Chat with tutor if you need clarification</li>
+              <li>📝 Provide assignment details and instructions</li>
+              <li>📦 Choose your delivery plan</li>
+              <li>✅ Receive expert solution with step-by-step explanations</li>
+              <li>💬 Request revisions if needed</li>
             </ol>
           </div>
         </div>
@@ -353,57 +389,84 @@ function Assignments() {
                   rows="3"
                 />
               </div>
+            </div>
 
-              {/* Urgency Selection */}
-              <div className="form-group">
-                <label>3. Select Urgency Level</label>
-                <div className="urgency-cards">
-                  {['1week', '48hours', '24hours'].map((level) => {
-                    const urgencyDisplay = getUrgencyDisplay(level);
-                    return (
-                      <div 
-                        key={level}
-                        className={`urgency-card ${urgency === level ? 'active' : ''}`}
-                        onClick={() => setUrgency(level)}
-                      >
-                        <div className="urgency-icon">{urgencyDisplay.icon}</div>
-                        <div className="urgency-content">
-                          <div className="urgency-title">{urgencyDisplay.text}</div>
-                          <div className="urgency-price">{urgencyDisplay.price}</div>
-                          <div className="urgency-description">
-                            {level === '1week' && 'Standard detailed solution'}
-                            {level === '48hours' && 'Priority service'}
-                            {level === '24hours' && 'Express urgent service'}
-                          </div>
-                        </div>
-                        {urgency === level && (
-                          <div className="urgency-selected">✓ Selected</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* ===== STEP 3: PLAN SELECTOR ===== */}
+            <div className="form-details-section">
+              <h3>3. Choose Your Deadline</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem', marginTop: '-0.5rem' }}>
+                Price is all-inclusive. No hidden fees.
+              </p>
+              <div className="cv-package-grid">
+                {Object.values(ASSIGNMENT_PLANS).map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`cv-package-card ${selectedPlan === plan.id ? 'selected' : ''} ${plan.popular ? 'popular' : ''}`}
+                    onClick={() => !uploading && setSelectedPlan(plan.id)}
+                    style={{ cursor: uploading ? 'not-allowed' : 'pointer' }}
+                  >
+                    {/* Popular Badge */}
+                    {plan.popular && (
+                      <div className="cv-package-popular-badge">MOST POPULAR</div>
+                    )}
+
+                    {/* Icon */}
+                    <div className="cv-package-icon">{plan.icon}</div>
+
+                    {/* Name */}
+                    <div className="cv-package-name">{plan.name}</div>
+
+                    {/* Price */}
+                    <div className="cv-package-price">R{plan.price}</div>
+
+                    {/* Features */}
+                    <ul className="cv-package-features">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx}>
+                          <span className="cv-feature-check">✓</span>
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Tagline */}
+                    <div style={{
+                      marginTop: '0.5rem',
+                      fontSize: '0.78rem',
+                      color: selectedPlan === plan.id ? '#a78bfa' : '#64748b',
+                      fontStyle: 'italic'
+                    }}>
+                      {plan.tagline}
+                    </div>
+
+                    {/* Selected indicator */}
+                    {selectedPlan === plan.id && (
+                      <div className="cv-package-selected-badge">✔ Selected</div>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {/* Price Summary */}
-              <div className="price-summary">
-                <div className="summary-item">
-                  <span>Base Price:</span>
-                  <span>R199</span>
+              {/* Final Quote Guarantee */}
+              <div style={{
+                background: 'rgba(139, 92, 246, 0.06)',
+                border: '1px solid rgba(139, 92, 246, 0.15)',
+                borderRadius: '12px',
+                padding: '1rem 1.25rem',
+                marginTop: '1.25rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.75rem'
+              }}>
+                <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>💡</span>
+                <div>
+                  <div style={{ fontWeight: '700', color: '#e2e8f0', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+                    Final Quote Guarantee
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: '1.5' }}>
+                    The final price is fixed based on your chosen plan above. If the assignment is exceptionally complex (e.g., a full thesis chapter), we will notify you <strong style={{ color: '#a78bfa' }}>BEFORE</strong> starting and agree on a small complexity fee.
+                  </div>
                 </div>
-                <div className="summary-item">
-                  <span>Urgency ({getUrgencyDisplay(urgency).text}):</span>
-                  <span>{getUrgencyDisplay(urgency).price}</span>
-                </div>
-                <div className="summary-total">
-                  <span>Estimated Total:</span>
-                  <span className="total-amount">
-                    {urgency === '24hours' ? 'R499' : urgency === '48hours' ? 'R399' : 'R299'}
-                  </span>
-                </div>
-                <p className="price-note">
-                  💡 Final price may vary based on assignment complexity. You'll receive a confirmed quote before proceeding.
-                </p>
               </div>
             </div>
 
@@ -419,9 +482,14 @@ function Assignments() {
                   UPLOADING...
                 </>
               ) : (
-                `🚀 SUBMIT ASSIGNMENT • ${urgency === '24hours' ? 'R499' : urgency === '48hours' ? 'R399' : 'R299'}`
+                `${currentPlan.icon} SUBMIT ASSIGNMENT • R${currentPlan.price}`
               )}
             </button>
+            
+            <div className="price-info">
+              <p>📦 Selected: <strong>{currentPlan.icon} {currentPlan.name}</strong> — <strong>R{currentPlan.price}</strong> (Delivery: {currentPlan.turnaround})</p>
+              <p>💬 Need help? WhatsApp us for advice!</p>
+            </div>
           </form>
         </div>
 
@@ -446,7 +514,7 @@ function Assignments() {
           ) : (
             <div className="submissions-grid">
               {submissions.map((submission) => {
-                const urgencyDisplay = getUrgencyDisplay(submission.urgency);
+                const planDisplay = getPlanDisplay(submission.urgency);
                 const statusDisplay = getStatusDisplay(submission.status);
                 const typeDisplay = getTypeDisplay(submission.type);
                 
@@ -472,6 +540,25 @@ function Assignments() {
                     <div className="submission-body">
                       <h3>{submission.fileName}</h3>
                       <p className="subject-text">{submission.subject || 'General'}</p>
+
+                      {/* Plan badge */}
+                      {(submission.planName || submission.urgency) && (
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          border: '1px solid rgba(139, 92, 246, 0.2)',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          fontSize: '0.8rem',
+                          color: '#a78bfa',
+                          fontWeight: '600',
+                          marginBottom: '10px'
+                        }}>
+                          {planDisplay.icon} {submission.planName || planDisplay.text} • {submission.priceEstimate ? `R${submission.priceEstimate}` : planDisplay.price}
+                        </div>
+                      )}
                       
                       <div className="submission-meta">
                         <div className="meta-item">
@@ -479,12 +566,9 @@ function Assignments() {
                           <span className="meta-value">{formatDate(submission.createdAt)}</span>
                         </div>
                         <div className="meta-item">
-                          <span className="meta-label">Urgency</span>
-                          <span 
-                            className="meta-value urgency-value"
-                            style={{ color: urgencyDisplay.color }}
-                          >
-                            {urgencyDisplay.icon} {urgencyDisplay.text}
+                          <span className="meta-label">Delivery</span>
+                          <span className="meta-value">
+                            {planDisplay.icon} {submission.turnaround || planDisplay.turnaround}
                           </span>
                         </div>
                         {submission.priceEstimate && (
@@ -520,7 +604,7 @@ function Assignments() {
                         </div>
                       )}
 
-                      {/* Solution File - IF ADMIN UPLOADED ONE */}
+                      {/* Solution File */}
                       {submission.solutionUrl && (
                         <div className="solution-available">
                           <span className="solution-icon">✅</span>
