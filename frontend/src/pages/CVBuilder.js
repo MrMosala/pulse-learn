@@ -606,7 +606,54 @@ function CVBuilder() {
             
             <div className="price-info">
               <p>📦 Selected: <strong>{selectedPkg.icon} {selectedPkg.name}</strong> — <strong>R{selectedPkg.price}</strong> (Delivery: {selectedPkg.turnaround})</p>
-              <p>💬 Need help choosing? WhatsApp us for advice!</p>
+              
+              {/* CONTACT INFORMATION ADDED HERE */}
+              <div className="contact-info" style={{
+                marginTop: '20px',
+                padding: '20px',
+                background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1))',
+                borderRadius: '12px',
+                border: '1px solid rgba(251, 191, 36, 0.3)'
+              }}>
+                <p style={{margin: '0 0 12px 0', fontWeight: '700', color: '#fbbf24', fontSize: '1.1rem'}}>
+                  📞 Need Help? Contact Us Directly:
+                </p>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <span style={{fontSize: '1.3rem'}}>📧</span>
+                    <div>
+                      <span style={{color: '#94a3b8', fontSize: '0.85rem'}}>Email:</span>
+                      <br />
+                      <strong style={{color: 'white', fontSize: '1rem', wordBreak: 'break-all'}}>
+                        pulselearn.sa@gmail.com
+                      </strong>
+                    </div>
+                  </div>
+                  
+                  <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <span style={{fontSize: '1.3rem'}}>📱</span>
+                    <div>
+                      <span style={{color: '#94a3b8', fontSize: '0.85rem'}}>WhatsApp / Call:</span>
+                      <br />
+                      <strong style={{color: 'white', fontSize: '1.2rem'}}>
+                        073 076 9091
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+                
+                <div style={{
+                  marginTop: '15px',
+                  padding: '10px',
+                  background: 'rgba(251, 191, 36, 0.1)',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  color: '#cbd5e1',
+                  textAlign: 'center'
+                }}>
+                  💬 We're here to help with any questions about your CV!
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -883,14 +930,62 @@ function CVBuilder() {
                 <p>Submit 3-5 days before your application deadline</p>
               </div>
             </div>
-            <div className="tip-card">
+            
+            {/* UPDATED TIP CARD WITH CONTACT INFO */}
+            <div className="tip-card" style={{
+              background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1))',
+              border: '1px solid rgba(251, 191, 36, 0.3)'
+            }}>
               <div className="tip-icon">📞</div>
               <div className="tip-content">
                 <strong>Get Support</strong>
                 <p>Chat with our career advisors for personalized advice</p>
+                <div style={{marginTop: '12px', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px'}}>
+                  <p style={{margin: '3px 0', fontSize: '0.85rem'}}>
+                    <span style={{color: '#fbbf24', marginRight: '8px'}}>📧</span> 
+                    pulselearn.sa@gmail.com
+                  </p>
+                  <p style={{margin: '3px 0', fontSize: '0.85rem'}}>
+                    <span style={{color: '#fbbf24', marginRight: '8px'}}>📱</span> 
+                    073 076 9091
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* FLOATING CONTACT BUTTON - OPTIONAL */}
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          <a 
+            href="https://wa.me/27730769091?text=Hi%21%20I%20need%20help%20with%20my%20CV"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: '#25D366',
+              color: 'white',
+              padding: '14px 24px',
+              borderRadius: '50px',
+              boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)',
+              fontWeight: '600',
+              textDecoration: 'none',
+              border: '2px solid rgba(255,255,255,0.2)'
+            }}
+          >
+            <span style={{fontSize: '1.5rem'}}>💬</span>
+            <div>
+              <div style={{fontSize: '0.8rem', opacity: 0.9}}>Need Help?</div>
+              <div>WhatsApp Us</div>
+            </div>
+          </a>
         </div>
       </div>
     </DashboardLayout>
