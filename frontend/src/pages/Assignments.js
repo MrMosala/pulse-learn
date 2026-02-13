@@ -488,7 +488,54 @@ function Assignments() {
             
             <div className="price-info">
               <p>📦 Selected: <strong>{currentPlan.icon} {currentPlan.name}</strong> — <strong>R{currentPlan.price}</strong> (Delivery: {currentPlan.turnaround})</p>
-              <p>💬 Need help? WhatsApp us for advice!</p>
+              
+              {/* CONTACT INFORMATION ADDED HERE */}
+              <div className="contact-info" style={{
+                marginTop: '20px',
+                padding: '20px',
+                background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1))',
+                borderRadius: '12px',
+                border: '1px solid rgba(251, 191, 36, 0.3)'
+              }}>
+                <p style={{margin: '0 0 12px 0', fontWeight: '700', color: '#fbbf24', fontSize: '1.1rem'}}>
+                  📞 Need Help? Contact Us Directly:
+                </p>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <span style={{fontSize: '1.3rem'}}>📧</span>
+                    <div>
+                      <span style={{color: '#94a3b8', fontSize: '0.85rem'}}>Email:</span>
+                      <br />
+                      <strong style={{color: 'white', fontSize: '1rem', wordBreak: 'break-all'}}>
+                        pulselearn.sa@gmail.com
+                      </strong>
+                    </div>
+                  </div>
+                  
+                  <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <span style={{fontSize: '1.3rem'}}>📱</span>
+                    <div>
+                      <span style={{color: '#94a3b8', fontSize: '0.85rem'}}>WhatsApp / Call:</span>
+                      <br />
+                      <strong style={{color: 'white', fontSize: '1.2rem'}}>
+                        073 076 9091
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+                
+                <div style={{
+                  marginTop: '15px',
+                  padding: '10px',
+                  background: 'rgba(251, 191, 36, 0.1)',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  color: '#cbd5e1',
+                  textAlign: 'center'
+                }}>
+                  💬 We're here to help with any questions about your assignment!
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -668,7 +715,7 @@ function Assignments() {
           )}
         </div>
 
-        {/* Support Information */}
+        {/* Support Information - UPDATED WITH YOUR CONTACT INFO */}
         <div className="support-info">
           <h3>📞 Need Immediate Help?</h3>
           <div className="support-options">
@@ -683,17 +730,50 @@ function Assignments() {
               <div className="option-icon">📧</div>
               <div className="option-content">
                 <strong>Email Support</strong>
-                <p>support@pulselearn.app</p>
+                <p style={{color: '#fbbf24', fontWeight: '600'}}>pulselearn.sa@gmail.com</p>
               </div>
             </div>
             <div className="support-option">
               <div className="option-icon">📱</div>
               <div className="option-content">
                 <strong>WhatsApp Support</strong>
-                <p>+27 12 345 6789</p>
+                <p style={{color: '#fbbf24', fontWeight: '600'}}>073 076 9091</p>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* FLOATING WHATSAPP BUTTON */}
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          <a 
+            href="https://wa.me/27730769091?text=Hi%21%20I%20need%20help%20with%20my%20assignment"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: '#25D366',
+              color: 'white',
+              padding: '14px 24px',
+              borderRadius: '50px',
+              boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)',
+              fontWeight: '600',
+              textDecoration: 'none',
+              border: '2px solid rgba(255,255,255,0.2)'
+            }}
+          >
+            <span style={{fontSize: '1.5rem'}}>💬</span>
+            <div>
+              <div style={{fontSize: '0.8rem', opacity: 0.9}}>Need Help?</div>
+              <div>WhatsApp Us</div>
+            </div>
+          </a>
         </div>
       </div>
     </DashboardLayout>
