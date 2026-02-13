@@ -1,0 +1,1173 @@
+/* frontend/src/pages/finance/styles/learner-finance.css */
+
+/* ══════════════════════════════════════════════
+   LEARNER FINANCE DASHBOARD STYLES
+   Theme: School Hustle (Green #10b981)
+   ══════════════════════════════════════════════ */
+
+/* ── Main Dashboard ── */
+.learner-finance-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Header ── */
+.finance-header {
+  text-align: center;
+  padding: 20px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: 12px;
+}
+
+.finance-header h1 {
+  font-size: 1.8rem;
+  color: white;
+  margin: 0 0 8px;
+}
+
+.finance-header p {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ── Finance Tabs (Learner Version) ── */
+.finance-tabs {
+  display: flex;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.finance-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 80px;
+}
+
+.finance-tab:last-child {
+  border-right: none;
+}
+
+.finance-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.finance-tab.active {
+  background: rgba(16, 185, 129, 0.1);
+  color: white;
+  position: relative;
+}
+
+/* Active tab indicator - Green theme */
+.finance-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+/* Tab icons */
+.tab-icon {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+
+.tab-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Tab Content Area ── */
+.finance-tab-content {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.tab-panel {
+  padding: 24px;
+}
+
+.section-header {
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 4px;
+}
+
+.section-subtitle {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+/* Remove old sections styling */
+.finance-sections,
+.finance-section {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════
+   SCHOOL BUSINESS HELPER STYLES
+   ══════════════════════════════════════════════ */
+
+/* ── Permission Warning ── */
+.permission-warning {
+  padding: 16px;
+  border-left: 4px solid;
+  background: rgba(245, 158, 11, 0.08);
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 20px;
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.warning-icon {
+  font-size: 1.4rem;
+}
+
+.permission-warning strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+}
+
+.permission-warning p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 12px;
+}
+
+.permission-toggle {
+  padding: 8px 16px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.permission-toggle:hover {
+  opacity: 0.9;
+}
+
+.permission-toggle.active {
+  background: #059669;
+}
+
+/* ── Permission Guide ── */
+.permission-guide {
+  padding: 20px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.05);
+  margin-bottom: 20px;
+}
+
+.permission-guide h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 16px;
+}
+
+.permission-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.step-number {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.permission-checkbox {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.permission-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.permission-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #10b981;
+}
+
+/* ── Business Selector ── */
+.business-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.business-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.88rem;
+}
+
+.business-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.business-option.active {
+  color: white;
+  font-weight: 600;
+}
+
+.business-emoji {
+  font-size: 1.3rem;
+}
+
+/* ── Business Header ── */
+.business-header {
+  border-left: 3px solid;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 12px 12px 0;
+  margin-bottom: 20px;
+}
+
+.business-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.business-title h3 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.business-tagline {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 2px 0 0;
+}
+
+.business-description {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.business-special-note {
+  padding: 10px 14px;
+  border-left: 3px solid;
+  border-radius: 0 8px 8px 0;
+  margin-top: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* ── Sections ── */
+.business-section {
+  margin-bottom: 24px;
+}
+
+.business-section h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 12px;
+}
+
+/* ── Startup List ── */
+.startup-list {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.startup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.startup-item:last-of-type {
+  border-bottom: none;
+}
+
+.startup-cost {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.startup-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-top: 2px solid;
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ── Product Cards ── */
+.product-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.product-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.product-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 8px;
+}
+
+.product-prices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+}
+
+.product-cost {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.product-arrow {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.product-sell {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.product-profit {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+/* ── Calculator Inputs ── */
+.calc-inputs {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.calc-input-group {
+  flex: 1;
+}
+
+.calc-input-group label {
+  display: block;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 8px;
+}
+
+.calc-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.calc-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.calc-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.calc-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* ── Calculator Results ── */
+.calc-results {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 12px;
+}
+
+.calc-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.calc-result-row:last-child {
+  border-bottom: none;
+}
+
+.profit-row {
+  border-top: 2px solid;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 14px 16px;
+}
+
+.monthly-row {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Payback Info ── */
+.payback-info {
+  padding: 14px 16px;
+  border-left: 3px solid;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 10px 10px 0;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+}
+
+/* ── Profit Perspective ── */
+.profit-perspective {
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.perspective-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.perspective-items span {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* ── Warning Box ── */
+.business-warning {
+  padding: 12px 16px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: rgba(245, 158, 11, 0.8);
+  margin-bottom: 20px;
+}
+
+/* ── Tips ── */
+.business-tips {
+  margin-bottom: 24px;
+}
+
+.business-tips h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 12px;
+}
+
+.tip-row {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tip-bullet {
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+/* ── School Rules ── */
+.school-rules {
+  margin-bottom: 24px;
+}
+
+.school-rules h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 14px;
+}
+
+.rule {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.rule-number {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.rule strong {
+  display: block;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 4px;
+}
+
+.rule p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.5;
+}
+
+/* ── Letter Template ── */
+.letter-template {
+  margin-bottom: 10px;
+  padding: 20px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.letter-template h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 16px;
+}
+
+.template-content {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.6;
+}
+
+.template-content p {
+  margin: 0 0 12px;
+}
+
+.template-content p:last-child {
+  margin-bottom: 0;
+}
+
+.copy-template-btn {
+  width: 100%;
+  padding: 12px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.copy-template-btn:hover {
+  background: #059669;
+}
+
+/* ══════════════════════════════════════════════
+   TRANSPORT STRETCHER (LEARNER VERSION)
+   ══════════════════════════════════════════════ */
+
+/* Specific styles for learner transport view */
+.transport-stretcher .transport-header h3 {
+  color: #10b981;
+}
+
+/* Update carpool section for learners */
+.carpool-section {
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+.carpool-section h4 {
+  color: #10b981;
+}
+
+/* Learner-specific transport tips */
+.transport-suggestions .suggestion-item {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE STYLES
+   ══════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Tabs */
+  .finance-tabs {
+    flex-direction: column;
+    border-radius: 10px;
+  }
+  
+  .finance-tab {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 60px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  
+  .finance-tab:last-child {
+    border-bottom: none;
+  }
+  
+  .finance-tab.active::after {
+    top: 0;
+    bottom: auto;
+    height: 100%;
+    width: 3px;
+    left: 0;
+    right: auto;
+  }
+  
+  .tab-icon {
+    margin-bottom: 0;
+    font-size: 1.4rem;
+  }
+  
+  .tab-text {
+    font-size: 0.9rem;
+    text-align: left;
+  }
+  
+  /* Business selector */
+  .business-selector {
+    gap: 8px;
+  }
+
+  .business-option {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .business-emoji {
+    font-size: 1.1rem;
+  }
+
+  /* Product grid */
+  .product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Calculator inputs */
+  .calc-inputs {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Perspective items */
+  .perspective-items {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  /* Tab panel padding */
+  .tab-panel {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab-panel {
+    padding: 12px;
+  }
+  
+  .tab-text {
+    font-size: 0.8rem;
+  }
+  
+  .tab-icon {
+    font-size: 1.2rem;
+  }
+  
+  .finance-header h1 {
+    font-size: 1.4rem;
+  }
+  
+  .finance-header p {
+    font-size: 0.85rem;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   PROGRESS CELEBRATIONS (LEARNER VERSION)
+   Placeholder styles - to be filled when component is built
+   ══════════════════════════════════════════════ */
+
+/* Progress section will go here */
+.progress-section {
+  padding: 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
+/* ══════════════════════════════════════════════
+   LEARNER-SPECIFIC TRANSPORT STYLES
+   Add to bottom of learner-finance.css
+   ══════════════════════════════════════════════ */
+
+/* Safety Banner */
+.safety-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-left: 4px solid;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 20px;
+}
+
+.safety-icon {
+  font-size: 1.4rem;
+}
+
+.safety-banner strong {
+  display: block;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4px;
+}
+
+.safety-banner p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Safety info in transport details */
+.safety-info {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.safety-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 4px;
+}
+
+/* Budget comparison */
+.budget-comparison {
+  padding: 16px;
+  border: 1px solid;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.comparison-header {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 12px;
+}
+
+.comparison-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Safety tips section */
+.safety-tips {
+  margin-bottom: 24px;
+}
+
+.safety-tips h4 {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 12px;
+}
+
+.safety-tip-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.safety-tip-item .safety-icon {
+  font-size: 0.9rem;
+  color: #10b981;
+  font-weight: 700;
+}
+
+/* Parent section */
+.parent-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.parent-section h4 {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 8px;
+}
+
+.parent-description {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 0 16px;
+}
+
+.parent-message {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.copy-message-btn {
+  width: 100%;
+  padding: 12px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.copy-message-btn:hover {
+  background: #059669;
+}
+
+/* ══════════════════════════════════════════════
+   PROGRESS CELEBRATIONS STYLES
+   Add to bottom of learner-finance.css
+   ══════════════════════════════════════════════ */
+
+.progress-celebrations {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Progress Goal Section */
+.progress-section h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 16px;
+}
+
+.progress-goal {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.goal-inputs {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.goal-input {
+  flex: 1;
+}
+
+.goal-input label {
+  display: block;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 8px;
+}
+
+.amount-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.amount-input span {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+}
+
+.amount-input input {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 700;
+  width: 100%;
+  outline: none;
+}
+
+.amount-input input::-webkit-inner-spin-button,
+.amount-input input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Achievements Section */
+.achievements-section h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 16px;
+}
+
+.achievements-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.achievement-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.achievement-card.completed {
+  border-left: 3px solid #10b981;
+}
+
+.achievement-card.pending {
+  opacity: 0.6;
+}
+
+.achievement-icon {
+  font-size: 1.6rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.achievement-content {
+  flex: 1;
+}
+
+.achievement-content strong {
+  display: block;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4px;
+}
+
+.achievement-date {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.achievement-status {
+  font-size: 1.2rem;
+}
+
+/* Tips Section */
+.progress-tips h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 12px;
+}
+
+.tip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tip-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tip-emoji {
+  font-size: 1.2rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .goal-inputs {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .achievement-card {
+    padding: 12px;
+  }
+  
+  .achievement-icon {
+    font-size: 1.4rem;
+    width: 36px;
+    height: 36px;
+  }
+}
