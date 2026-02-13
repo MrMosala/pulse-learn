@@ -1,6 +1,6 @@
 // frontend/src/pages/finance/components/ProgressCelebrations.js
 import React, { useState } from 'react';
-import { FaTrophy, FaStar, FaChartLine, FaFire, FaMedal, FaAward, FaGem } from 'react-icons/fa';
+import { FaStar, FaChartLine, FaFire, FaMedal, FaAward, FaGem } from 'react-icons/fa';
 
 function ProgressCelebrations({ userType = 'student' }) {
   const [savedAmount, setSavedAmount] = useState(0);
